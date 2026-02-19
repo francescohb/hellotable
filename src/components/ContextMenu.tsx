@@ -1,14 +1,15 @@
 "use client";
 import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { 
-    UserCheck, 
-    LogOut, 
-    Divide, 
-    RotateCcw, 
-    Trash2, 
+import {
+    UserCheck,
+    LogOut,
+    Divide,
+    RotateCcw,
+    Trash2,
     Utensils,
-    Anchor
+    Anchor,
+    Merge
 } from 'lucide-react';
 import { TableData } from '../lib/types';
 
@@ -17,7 +18,7 @@ interface ContextMenuProps {
     y: number;
     table: TableData;
     onClose: () => void;
-    onAction: (action: 'toggle_status' | 'split' | 'reset' | 'delete' | 'make_permanent', tableId: string) => void;
+    onAction: (action: 'toggle_status' | 'split' | 'reset' | 'delete' | 'make_permanent' | 'merge_manual', tableId: string) => void;
     hasPendingRes: boolean;
 }
 
@@ -61,8 +62,8 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, table, onClose, onActio
                 <button
                     onClick={() => onAction('toggle_status', table.id)}
                     className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors w-full text-left
-                        ${isOccupied 
-                            ? 'text-aura-primary hover:bg-aura-primary/10' 
+                        ${isOccupied
+                            ? 'text-aura-primary hover:bg-aura-primary/10'
                             : (hasPendingRes ? 'text-aura-gold hover:bg-aura-gold/10' : 'text-gray-300 hover:bg-white/10')
                         }`}
                 >
@@ -95,6 +96,16 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, table, onClose, onActio
                         className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors w-full text-left"
                     >
                         <Divide size={16} /> <span>Dividi Tavoli</span>
+                    </button>
+                )}
+
+                {/* MANUAL MERGE */}
+                {table.status === 'FREE' && (
+                    <button
+                        onClick={() => onAction('merge_manual', table.id)}
+                        className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors w-full text-left"
+                    >
+                        <Merge size={16} /> <span>Unisci Tavoli...</span>
                     </button>
                 )}
 

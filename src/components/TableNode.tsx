@@ -10,6 +10,7 @@ interface TableNodeProps {
   isSelected: boolean;
   isMergeCandidate: boolean; // Green dashed border
   isMergeError: boolean;     // Red dashed border (New prop)
+  isManualSelected: boolean; // Checkmark/glow for manual merge selection
   onSelect: (id: string) => void;
   onDrag: (id: string, currentPos: Position) => void;
   onDragEnd: (id: string, newPos: Position) => void;
@@ -23,6 +24,7 @@ const TableNode: React.FC<TableNodeProps> = ({
   isSelected,
   isMergeCandidate,
   isMergeError,
+  isManualSelected,
   onSelect,
   onDrag,
   onDragEnd,
@@ -46,6 +48,27 @@ const TableNode: React.FC<TableNodeProps> = ({
   const visualStyle = isReserved
     ? STATUS_STYLES.RESERVED_VISUAL
     : STATUS_STYLES[data.status];
+
+  // 10-minute warning logic
+  const isUpcomingWarning = useMemo(() => {
+    if (data.status !== 'OCCUPIED') return false;
+
+    // We need to look at ALL reservations for today, not just active ones, 
+    // because an OCCUPIED table might have a CONFIRMED reservation coming up
+    const todayRes = data.reservations?.filter(r => r.date === selectedDate && r.status === 'CONFIRMED') || [];
+    if (!todayRes.length) return false;
+
+    const now = new Date(currentTime);
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+    return todayRes.some(r => {
+      const [rHour, rMin] = r.time.split(':').map(Number);
+      const rMinutes = rHour * 60 + rMin;
+      const diff = rMinutes - nowMinutes;
+      // If the reservation is within the next 10 minutes (inclusive)
+      return diff > 0 && diff <= 10;
+    });
+  }, [data.status, data.reservations, selectedDate, currentTime]);
 
   // Determine shape dimensions & roundedness
   // GRID SIZE is 60px.
@@ -131,6 +154,10 @@ const TableNode: React.FC<TableNodeProps> = ({
     containerClasses = "border-aura-red/50 bg-aura-red/10 z-50";
   } else if (isMergeCandidate) {
     containerClasses = "z-50 bg-aura-primary/10"; // Border handled by SVG
+  } else if (isManualSelected) {
+    containerClasses = "border-aura-primary bg-aura-primary/20 z-50 shadow-[0_0_20px_-5px_rgba(0,227,107,0.5)]";
+  } else if (isUpcomingWarning) {
+    containerClasses = "border-aura-red bg-aura-red/10 animate-pulse z-50 shadow-[0_0_15px_rgba(255,77,77,0.5)]";
   } else if (isPending) {
     containerClasses = "border-orange-500/50 bg-orange-500/5 z-10";
   } else {

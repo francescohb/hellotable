@@ -152,7 +152,9 @@ const TableDetails: React.FC<TableDetailsProps> = ({
 
         if (editResId) {
             // Update existing
+            const originalReservation = table.reservations?.find(r => r.id === editResId);
             const updated: Reservation = {
+                ...(originalReservation || {} as Reservation),
                 id: editResId,
                 firstName: resFirstName,
                 lastName: resLastName,

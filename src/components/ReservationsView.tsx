@@ -224,7 +224,22 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
     };
 
     const proceedWithSave = () => {
+        let originalReservation: Reservation | undefined;
+        if (formData.id) {
+            originalReservation = unassignedReservations.find(r => r.id === formData.id);
+            if (!originalReservation) {
+                for (const t of tables) {
+                    const r = t.reservations?.find(res => res.id === formData.id);
+                    if (r) {
+                        originalReservation = r;
+                        break;
+                    }
+                }
+            }
+        }
+
         const newRes: Reservation = {
+            ...(originalReservation || {} as Reservation),
             id: formData.id || `res-${Date.now()}`,
             tableId: formData.selectedTableId || undefined,
             firstName: formData.firstName,

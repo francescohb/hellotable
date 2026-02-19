@@ -725,33 +725,30 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
     };
 
     const updateReservation = (newTableId: string | null, updatedRes: Reservation) => {
-        let found = false;
-        setUnassignedReservations(prev => {
-            const exists = prev.some(r => r.id === updatedRes.id);
-            if (exists) found = true;
-            return prev.filter(r => r.id !== updatedRes.id);
-        });
+        // Remove from unassigned
+        setUnassignedReservations(prev => prev.filter(r => r.id !== updatedRes.id));
+
+        // If it's becoming unassigned, add it
+        if (!newTableId) {
+            setUnassignedReservations(prev => [...prev.filter(r => r.id !== updatedRes.id), updatedRes]);
+        }
+
         setTables(prev => prev.map(t => {
-            const exists = t.reservations.some(r => r.id === updatedRes.id);
-            if (exists) found = true;
-            // Map the reservation to replace it if it exists in this table
-            const newReservations = t.reservations.map(r => r.id === updatedRes.id ? updatedRes : r);
-            // If it didn't exist before in this table but we want to update it (e.g. status change)
-            // we should have handled filtering it out above.
-            // Wait, the logic here was a bit simplified in previous prompt.
-            // Correct update logic:
-            if (exists) return { ...t, reservations: newReservations };
+            // Remove from current table if present
+            const filtered = t.reservations.filter(r => r.id !== updatedRes.id);
 
-            // If we are strictly updating an existing reservation in place:
-            return t;
+            // Add to new table if it matches
+            if (t.id === newTableId) {
+                return { ...t, reservations: [...filtered, updatedRes] };
+            }
+
+            return { ...t, reservations: filtered };
         }));
-
-        // If we need to move it or add it if not found (handled loosely before)
-        // For the purpose of the context menu "check-in", we assume the reservation is already on the table.
-        // So the above map is sufficient for check-in status update.
 
         setNotification(`Prenotazione aggiornata`);
     };
+
+
 
     const mergeTablesAndAddReservation = (tableIds: string[], reservation: Reservation) => {
         const targetTables = tables.filter(t => tableIds.includes(t.id));
@@ -1310,6 +1307,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                         <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", bounce: 0, duration: 0.4 }} className="absolute top-0 right-0 h-full w-[420px] z-[70] shadow-[-20px_0_50px_-10px_rgba(0,0,0,0.5)] border-l border-aura-border bg-aura-bg pointer-events-auto">
                                             <TableDetails
                                                 table={selectedTable}
+                                                allTables={tables}
                                                 selectedDate={selectedDate}
                                                 currentTime={currentTime}
                                                 onUpdateStatus={updateTableStatus}

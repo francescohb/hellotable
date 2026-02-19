@@ -8,6 +8,7 @@ import PaxPicker from './PaxPicker';
 
 interface TableDetailsProps {
     table: TableData | null;
+    allTables: TableData[]; // New prop
     selectedDate: string; // From parent
     currentTime?: number; // From parent (for live timer)
     onUpdateStatus: (id: string, status: TableStatus) => void;
@@ -25,6 +26,7 @@ interface TableDetailsProps {
 
 const TableDetails: React.FC<TableDetailsProps> = ({
     table,
+    allTables,
     selectedDate,
     currentTime,
     onUpdateStatus,
@@ -43,6 +45,7 @@ const TableDetails: React.FC<TableDetailsProps> = ({
     const [tempName, setTempName] = useState('');
     const [isAddingReservation, setIsAddingReservation] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
+    const [editingTableForResId, setEditingTableForResId] = useState<string | null>(null); // New state
 
     // Reservation Form State
     const [editResId, setEditResId] = useState<string | null>(null);
@@ -427,7 +430,7 @@ const TableDetails: React.FC<TableDetailsProps> = ({
                                         <div
                                             key={idx}
                                             onClick={() => !isCompleted && startEditReservation(res)}
-                                            className={`border rounded-xl p-4 flex justify-between items-center group relative overflow-hidden transition-all cursor-pointer
+                                            className={`border rounded-xl p-4 flex flex-col group relative transition-all cursor-pointer
                                                 ${isArrived
                                                     ? 'bg-aura-secondary/5 border-aura-secondary shadow-[0_0_15px_-3px_rgba(0,227,107,0.3)]'
                                                     : (isCompleted
@@ -439,7 +442,7 @@ const TableDetails: React.FC<TableDetailsProps> = ({
                                             {/* Delete Confirmation Overlay */}
                                             {confirmDeleteResId === res.id ? (
                                                 <div
-                                                    className="absolute inset-0 bg-aura-black/90 backdrop-blur-sm flex items-center justify-center gap-4 z-10"
+                                                    className="absolute inset-0 bg-aura-black/90 backdrop-blur-sm flex items-center justify-center gap-4 z-10 rounded-xl"
                                                     onClick={(e) => e.stopPropagation()}
                                                 >
                                                     <span className="text-xs text-white font-medium">Eliminare?</span>
@@ -448,75 +451,139 @@ const TableDetails: React.FC<TableDetailsProps> = ({
                                                 </div>
                                             ) : null}
 
-                                            <div className="flex-1">
-                                                <div className={`font-bold text-lg leading-tight flex items-center gap-2 ${res.status === 'PENDING' ? 'text-orange-400' : (isArrived ? 'text-aura-secondary' : 'text-white')}`}>
-                                                    {res.firstName} {res.lastName}
-                                                    {res.status === 'PENDING' && <span className="text-[9px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded border border-orange-500/30 uppercase">In Attesa</span>}
-                                                    {isArrived && <span className="text-[9px] bg-aura-secondary/20 text-aura-secondary px-1.5 py-0.5 rounded border border-aura-secondary/30 uppercase animate-pulse">Live</span>}
+                                            {/* Primary Card Content */}
+                                            <div className="flex justify-between items-start w-full">
+                                                <div className="flex-1">
+                                                    <div className={`font-bold text-lg leading-tight flex items-center gap-2 ${res.status === 'PENDING' ? 'text-orange-400' : (isArrived ? 'text-aura-secondary' : 'text-white')}`}>
+                                                        {res.firstName} {res.lastName}
+                                                        {res.status === 'PENDING' && <span className="text-[9px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded border border-orange-500/30 uppercase">In Attesa</span>}
+                                                        {isArrived && <span className="text-[9px] bg-aura-secondary/20 text-aura-secondary px-1.5 py-0.5 rounded border border-aura-secondary/30 uppercase animate-pulse">Live</span>}
 
-                                                    {/* Actions */}
-                                                    <div className="flex items-center gap-1 transition-opacity ml-2">
-                                                        {/* CHECK-IN ACTION */}
-                                                        {(res.status === 'CONFIRMED' || res.status === 'PENDING' || !res.status) && (
+                                                        {/* Actions */}
+                                                        <div className="flex items-center gap-1 transition-opacity ml-2">
+                                                            {/* CHECK-IN ACTION */}
+                                                            {(res.status === 'CONFIRMED' || res.status === 'PENDING' || !res.status) && (
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        onUpdateReservation(table.id, { ...res, status: 'ARRIVED' });
+                                                                        onUpdateStatus(table.id, 'OCCUPIED');
+                                                                    }}
+                                                                    className="w-8 h-8 flex items-center justify-center rounded-full bg-aura-secondary/10 text-aura-secondary hover:bg-aura-secondary hover:text-black transition-colors"
+                                                                    title="Check-in (Ospiti Arrivati)"
+                                                                >
+                                                                    <UserCheck size={16} />
+                                                                </button>
+                                                            )}
+
+                                                            {/* CHECK-OUT ACTION */}
+                                                            {isArrived && (
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        onUpdateReservation(table.id, { ...res, status: 'COMPLETED' });
+                                                                        onUpdateStatus(table.id, 'FREE');
+                                                                    }}
+                                                                    className="w-8 h-8 flex items-center justify-center rounded-full bg-aura-red/10 text-aura-red hover:bg-aura-red hover:text-white transition-colors"
+                                                                    title="Termina (Tavolo Liberato)"
+                                                                >
+                                                                    <CheckCircle size={16} />
+                                                                </button>
+                                                            )}
+
+                                                            {!isCompleted && (
+                                                                <>
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); startEditReservation(res); }}
+                                                                        className="p-1 text-gray-400 hover:text-white hover:bg-white/10 rounded cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                    >
+                                                                        <Edit2 size={12} />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteResId(res.id); }}
+                                                                        className="p-1 text-gray-400 hover:text-aura-red hover:bg-aura-red/10 rounded cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                    >
+                                                                        <Trash2 size={12} />
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className={`text-[10px] mt-1 uppercase tracking-wide flex gap-2 text-gray-500`}>
+                                                        <span>{res.guests} Ospiti</span>
+                                                        <span>•</span>
+                                                        <span>Ore {res.time}</span>
+                                                    </div>
+                                                    {res.notes && <div className="text-xs text-gray-400 mt-1 italic">"{res.notes}"</div>}
+                                                </div>
+                                                <div className="flex flex-col items-end">
+                                                    <div className={`font-mono text-xl ${res.status === 'PENDING' ? 'text-orange-400' : (isArrived ? 'text-aura-secondary' : 'text-aura-gold')}`}>
+                                                        {res.time}
+                                                    </div>
+                                                    <span
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setEditingTableForResId(editingTableForResId === res.id ? null : res.id);
+                                                        }}
+                                                        className={`text-[10px] px-1.5 py-0.5 rounded border uppercase font-bold mt-1 cursor-pointer transition-colors ${editingTableForResId === res.id ? 'bg-aura-primary text-black border-aura-primary' : 'bg-aura-primary/10 text-aura-primary border-aura-primary/20 hover:bg-aura-primary/20'}`}
+                                                        title="Clicca per cambiare tavolo"
+                                                    >
+                                                        Tavolo {res.tableName || table.name}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Expandable Table Selector */}
+                                            {editingTableForResId === res.id && (
+                                                <div
+                                                    className="w-full mt-4 pt-3 border-t border-aura-border/50"
+                                                    onClick={e => e.stopPropagation()}
+                                                >
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Sposta a tavolo:</span>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setEditingTableForResId(null); }}
+                                                            className="text-gray-500 hover:text-white transition-colors"
+                                                        >
+                                                            <X size={14} />
+                                                        </button>
+                                                    </div>
+                                                    <div className="flex gap-2 p-1 overflow-x-auto custom-scrollbar pb-2">
+                                                        {allTables.filter(t => {
+                                                            // Always include the current table
+                                                            if (t.id === table.id) return true;
+
+                                                            // Include if FREE and doesn't have an overlapping reservation for selectedDate
+                                                            const hasConflict = t.reservations?.some(r =>
+                                                                r.date === selectedDate &&
+                                                                r.status !== 'COMPLETED' &&
+                                                                checkOverlap(r.time, res.time)
+                                                            );
+
+                                                            return t.status === 'FREE' && !hasConflict;
+                                                        }).map(t => (
                                                             <button
+                                                                key={t.id}
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    onUpdateReservation(table.id, { ...res, status: 'ARRIVED' });
-                                                                    onUpdateStatus(table.id, 'OCCUPIED');
+                                                                    setEditingTableForResId(null);
+                                                                    if (t.id !== table.id) {
+                                                                        onUpdateReservation(t.id, { ...res, tableName: t.name });
+                                                                    }
                                                                 }}
-                                                                className="w-8 h-8 flex items-center justify-center rounded-full bg-aura-secondary/10 text-aura-secondary hover:bg-aura-secondary hover:text-black transition-colors"
-                                                                title="Check-in (Ospiti Arrivati)"
+                                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase whitespace-nowrap transition-all outline-none cursor-pointer
+                                                                    ${t.id === table.id
+                                                                        ? 'bg-aura-primary/20 text-aura-primary border border-aura-primary/50'
+                                                                        : 'bg-aura-black/50 border border-aura-border text-gray-400 hover:bg-aura-card hover:text-white hover:border-gray-500'
+                                                                    }
+                                                                `}
                                                             >
-                                                                <UserCheck size={16} />
+                                                                {t.name}
                                                             </button>
-                                                        )}
-
-                                                        {/* CHECK-OUT ACTION */}
-                                                        {isArrived && (
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    onUpdateReservation(table.id, { ...res, status: 'COMPLETED' });
-                                                                    onUpdateStatus(table.id, 'FREE');
-                                                                }}
-                                                                className="w-8 h-8 flex items-center justify-center rounded-full bg-aura-red/10 text-aura-red hover:bg-aura-red hover:text-white transition-colors"
-                                                                title="Termina (Tavolo Liberato)"
-                                                            >
-                                                                <CheckCircle size={16} />
-                                                            </button>
-                                                        )}
-
-                                                        {!isCompleted && (
-                                                            <>
-                                                                <button
-                                                                    onClick={(e) => { e.stopPropagation(); startEditReservation(res); }}
-                                                                    className="p-1 text-gray-400 hover:text-white hover:bg-white/10 rounded cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-                                                                >
-                                                                    <Edit2 size={12} />
-                                                                </button>
-                                                                <button
-                                                                    onClick={(e) => { e.stopPropagation(); setConfirmDeleteResId(res.id); }}
-                                                                    className="p-1 text-gray-400 hover:text-aura-red hover:bg-aura-red/10 rounded cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-                                                                >
-                                                                    <Trash2 size={12} />
-                                                                </button>
-                                                            </>
-                                                        )}
+                                                        ))}
                                                     </div>
                                                 </div>
-                                                <div className={`text-[10px] mt-1 uppercase tracking-wide flex gap-2 text-gray-500`}>
-                                                    <span>{res.guests} Ospiti</span>
-                                                    <span>•</span>
-                                                    <span>Ore {res.time}</span>
-                                                </div>
-                                                {res.notes && <div className="text-xs text-gray-400 mt-1 italic">"{res.notes}"</div>}
-                                            </div>
-                                            <div className="flex flex-col items-end">
-                                                <div className={`font-mono text-xl ${res.status === 'PENDING' ? 'text-orange-400' : (isArrived ? 'text-aura-secondary' : 'text-aura-gold')}`}>
-                                                    {res.time}
-                                                </div>
-                                                {res.tableName && <span className="text-[10px] bg-aura-primary/10 text-aura-primary px-1.5 py-0.5 rounded border border-aura-primary/20 uppercase font-bold mt-1">Tavolo {res.tableName}</span>}
-                                            </div>
+                                            )}
                                         </div>
                                     );
                                 })}
@@ -669,7 +736,7 @@ const TableDetails: React.FC<TableDetailsProps> = ({
                 </div>
             </div>
 
-        </div>
+        </div >
     );
 };
 

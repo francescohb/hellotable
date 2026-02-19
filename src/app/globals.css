@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+  --color-aura-black: #050a07;
+  --color-aura-bg: #0a1410;
+  --color-aura-grid: #122a1d;
+  --color-aura-card: #0f221a;
+  --color-aura-border: #1e3d2b;
+  --color-aura-primary: #00e36b;
+  --color-aura-secondary: #10b981;
+  --color-aura-red: #ff4d4d;
+  --color-aura-gold: #fbbf24;
+}
+
+/* Standard CSS for Preview */
+body {
+  background-color: #050a07;
+  color: #e2e8f0;
+  overflow: hidden;
+}
+
+button {
+  cursor: pointer;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0a1410;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e3d2b;
+  border-radius: 3px;
+}

@@ -578,19 +578,117 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
 
     // --- OTHER HANDLERS (Same as before) ---
     const updateTableStatus = (id: string, status: TableStatus) => {
-        setTables(prev => prev.map(t => {
-            if (t.id !== id) return t;
+        setTables(prev => {
+            const tableIndex = prev.findIndex(t => t.id === id);
+            if (tableIndex === -1) return prev;
+            const t = prev[tableIndex];
+
             const updates: Partial<TableData> = { status };
+
+            // Handle Occupied
             if (status === 'OCCUPIED' && t.status !== 'OCCUPIED') {
                 updates.seatedAt = currentTime;
                 updates.lastOrderAt = currentTime;
+
+                // CHECK FOR EXISTING ARRIVED RESERVATION (Check-in already done?)
+                // Use virtual time
+                const now = new Date(currentTime);
+                // No offset needed if currentTime is treated as Local App Time
+                const todayStr = now.toISOString().split('T')[0];
+
+                const hasArrivedRes = t.reservations?.some(r =>
+                    r.status === 'ARRIVED' && r.date === todayStr
+                );
+
+                if (!hasArrivedRes) {
+                    // CREATE WALK-IN RESERVATION
+                    // Use virtual time for the time string
+                    const timeStr = now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+                    const walkInRes: Reservation = {
+                        id: `res-walkin-${Date.now()}`,
+                        firstName: 'Cliente',
+                        lastName: 'Walk-in',
+                        date: todayStr,
+                        time: timeStr,
+                        guests: t.capacity,
+                        status: 'ARRIVED',
+                        notes: 'Generata automaticamente'
+                    };
+
+                    updates.reservations = [...(t.reservations || []), walkInRes];
+                    setNotification("Prenotazione Walk-in creata");
+                }
             }
+
+            // Handle Free & Auto-Split Logic
             if (status === 'FREE') {
                 updates.seatedAt = undefined;
                 updates.lastOrderAt = undefined;
+
+                // CLOSE CURRENT RESERVATION (Mark as COMPLETED)
+                if (t.reservations && t.reservations.length > 0) {
+                    const now = new Date(currentTime);
+                    const todayStr = now.toISOString().split('T')[0];
+
+                    const updatedReservations = t.reservations.map(r => {
+                        if (r.status === 'ARRIVED' && r.date === todayStr) {
+                            return { ...r, status: 'COMPLETED' as const };
+                        }
+                        return r;
+                    });
+
+                    // Only update if changes occurred
+                    if (JSON.stringify(updatedReservations) !== JSON.stringify(t.reservations)) {
+                        updates.reservations = updatedReservations;
+                        setNotification("Prenotazione completata");
+                    }
+                }
+
+                // Auto-Split Logic for Merged Tables
+                if (t.subTables && t.subTables.length > 0) {
+                    // Check reservations
+                    const activeReservations = (t.reservations || []).filter(r =>
+                        r.status === 'CONFIRMED' || r.status === 'PENDING'
+                    );
+
+                    // Sort by time
+                    activeReservations.sort((a, b) => a.time.localeCompare(b.time));
+                    const nextRes = activeReservations[0];
+
+                    // If NO next reservation OR next reservation is for a SPECIFIC sub-table
+                    if (!nextRes || (nextRes.tableName && nextRes.tableName !== t.name)) {
+                        setNotification("Tavoli separati automaticamente");
+
+                        // Restore sub-tables
+                        const restored = t.subTables.map(sub => {
+                            // Find reservations for this sub-table from the merged table
+                            const specificRes = activeReservations.filter(r => r.tableName === sub.name);
+
+                            // Combine with original reservations (from ref or snapshot)
+                            const originalRes = reservationsRef.current[sub.id] || [];
+
+                            return {
+                                ...sub,
+                                status: 'FREE' as TableStatus,
+                                position: sub.position,
+                                reservations: [...originalRes, ...specificRes]
+                            };
+                        });
+
+                        // Replace merged table with sub-tables
+                        const newTables = [...prev];
+                        newTables.splice(tableIndex, 1, ...restored);
+                        return newTables;
+                    }
+                }
             }
-            return { ...t, ...updates };
-        }));
+
+            // Standard Update
+            const newTables = [...prev];
+            newTables[tableIndex] = { ...t, ...updates };
+            return newTables;
+        });
     };
 
     const modifyCapacity = (id: string, delta: number) => {
@@ -627,33 +725,30 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
     };
 
     const updateReservation = (newTableId: string | null, updatedRes: Reservation) => {
-        let found = false;
-        setUnassignedReservations(prev => {
-            const exists = prev.some(r => r.id === updatedRes.id);
-            if (exists) found = true;
-            return prev.filter(r => r.id !== updatedRes.id);
-        });
+        // Remove from unassigned
+        setUnassignedReservations(prev => prev.filter(r => r.id !== updatedRes.id));
+
+        // If it's becoming unassigned, add it
+        if (!newTableId) {
+            setUnassignedReservations(prev => [...prev.filter(r => r.id !== updatedRes.id), updatedRes]);
+        }
+
         setTables(prev => prev.map(t => {
-            const exists = t.reservations.some(r => r.id === updatedRes.id);
-            if (exists) found = true;
-            // Map the reservation to replace it if it exists in this table
-            const newReservations = t.reservations.map(r => r.id === updatedRes.id ? updatedRes : r);
-            // If it didn't exist before in this table but we want to update it (e.g. status change)
-            // we should have handled filtering it out above.
-            // Wait, the logic here was a bit simplified in previous prompt.
-            // Correct update logic:
-            if (exists) return { ...t, reservations: newReservations };
+            // Remove from current table if present
+            const filtered = t.reservations.filter(r => r.id !== updatedRes.id);
 
-            // If we are strictly updating an existing reservation in place:
-            return t;
+            // Add to new table if it matches
+            if (t.id === newTableId) {
+                return { ...t, reservations: [...filtered, updatedRes] };
+            }
+
+            return { ...t, reservations: filtered };
         }));
-
-        // If we need to move it or add it if not found (handled loosely before)
-        // For the purpose of the context menu "check-in", we assume the reservation is already on the table.
-        // So the above map is sufficient for check-in status update.
 
         setNotification(`Prenotazione aggiornata`);
     };
+
+
 
     const mergeTablesAndAddReservation = (tableIds: string[], reservation: Reservation) => {
         const targetTables = tables.filter(t => tableIds.includes(t.id));
@@ -755,8 +850,8 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
         const totalTables = targetTables.length;
         const totalSeats = targetTables.reduce((acc, t) => acc + t.capacity, 0);
         const occupiedTables = targetTables.filter(t => t.status === 'OCCUPIED');
-        const reservedTables = targetTables.filter(t => t.status === 'FREE' && t.reservations?.some(r => r.date === selectedDate));
-        const freeTables = targetTables.filter(t => t.status === 'FREE' && !t.reservations?.some(r => r.date === selectedDate));
+        const reservedTables = targetTables.filter(t => t.status === 'FREE' && t.reservations?.some(r => r && r.date === selectedDate));
+        const freeTables = targetTables.filter(t => t.status === 'FREE' && !t.reservations?.some(r => r && r.date === selectedDate));
 
         const occupiedSeats = occupiedTables.reduce((acc, t) => acc + t.capacity, 0);
         const reservedSeats = reservedTables.reduce((acc, t) => acc + t.capacity, 0);
@@ -1212,6 +1307,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                         <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", bounce: 0, duration: 0.4 }} className="absolute top-0 right-0 h-full w-[420px] z-[70] shadow-[-20px_0_50px_-10px_rgba(0,0,0,0.5)] border-l border-aura-border bg-aura-bg pointer-events-auto">
                                             <TableDetails
                                                 table={selectedTable}
+                                                allTables={tables}
                                                 selectedDate={selectedDate}
                                                 currentTime={currentTime}
                                                 onUpdateStatus={updateTableStatus}

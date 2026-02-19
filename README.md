@@ -1,85 +1,67 @@
-# helloTable
+# HelloTable - Sistema di Gestione Ristorante (Next.js App Router)
 
-**Mission Critical Horeca Management System**
-
-helloTable è una piattaforma avanzata per la gestione di sale ristorante in tempo reale, progettata per garantire performance elevate, sincronizzazione istantanea e un'esperienza utente fluida.
+Un sistema moderno e ad alte prestazioni per la gestione dei tavoli e delle prenotazioni, costruito con tecnologie all'avanguardia per garantire reattività e scalabilità.
 
 ## 🚀 Tech Stack
 
-*   **Framework:** [Next.js 16](https://nextjs.org/) (App Router)
-*   **Language:** [TypeScript](https://www.typescriptlang.org/)
-*   **Styling:** [Tailwind CSS v4](https://tailwindcss.com/)
-*   **Animations:** [Framer Motion](https://www.framer.com/motion/)
-*   **Icons:** [Lucide React](https://lucide.dev/)
-*   **Linting:** ESLint
+- **Framework**: [Next.js 16](https://nextjs.org/) (App Router, Server Actions)
+- **Linguaggio**: [TypeScript](https://www.typescriptlang.org/) (Strict Mode)
+- **Stile**: [Tailwind CSS v4](https://tailwindcss.com/)
+- **Gestione Stato**: React Hooks (Migrazione a Zustand/TanStack Query in corso)
+- **Drag & Drop**: Implementazione Custom (Migrazione a @dnd-kit pianificata)
+- **Icone**: [Lucide React](https://lucide.dev/)
+- **Animazioni**: [Framer Motion](https://www.framer.com/motion/)
 
-## ✨ Funzionalità Attuali
+## 📂 Struttura Progetto
 
-### 1. 🔐 Autenticazione & Onboarding
-- **Interfaccia Pulita:** Login screen con design _mission critical_ (Dark Mode nativa).
-- **Accesso Rapido (Demo):** Bypass immediato per testare le funzionalità.
-- **Setup Wizard Guidato:**
-    - Configurazione iniziale delle sale (es: Principale, Dehor).
-    - Definizione del numero di tavoli e capienza base.
-    - **Generazione Automatica:** Creazione istantanea della planimetria basata sui parametri inseriti.
+```bash
+src/
+├── app/              # Pagine Next.js App Router
+├── components/       # Componenti UI (Client & Server)
+│   ├── FloorManager.tsx  # Canvas interattivo principale
+│   ├── TableNode.tsx     # Componente tavolo individuale
+│   └── ...
+├── lib/              # Utility, Tipi e Costanti
+│   ├── types.ts      # Interfacce TypeScript
+│   └── constants.ts  # Configurazione e Dati Mock
+```
 
-### 2. 🗺️ Floor Manager (Mappa Interattiva)
-- **Vista God-Mode:** Panoramica completa di tutte le sale.
-- **Navigazione Rapida:**
-    - Switch istantaneo tra le sale (Bottom Bar).
-    - Date Picker per navigare tra i turni/giorni.
-- **Stati Tavolo Dinamici:**
-    - 🟢 **Libero:** Disponibile per walk-in o assegnazione.
-    - 🟡 **Occupato:** Tavolo attivo con clienti.
-    - 🔒 **Riservato:** Assegnato a una prenotazione.
-
-### 3. 📊 Sidebar Operativa (Right Panel)
-- **Gestione Singolo Tavolo:**
-    - Toggle Rapido Stato (Libero/Occupato).
-    - **Gestione Plancia:** Aggiunta/Rimozione coperti temporanei (+/-) senza alterare la capacità base del tavolo.
-    - Lista prenotazioni future per il tavolo selezionato.
-- **Metriche Real-time:** Contatori live per clienti in sala, prenotati e walk-in.
-
-## 🛠 Installazione e Avvio
+## 🛠️ Per Iniziare
 
 ### Prerequisiti
-*   Node.js 18+
-*   npm / yarn / pnpm
 
-### Setup Locale
+- Node.js 18+
+- npm / yarn / pnpm
 
-1.  **Clona il repository:**
+### Installazione
+
+1.  **Clona la repository**:
     ```bash
-    git clone https://github.com/hellobarrio/helloTable.git
-    cd helloTable
+    git clone https://github.com/tuo-username/hellotable.git
+    cd hellotable
     ```
 
-2.  **Installa le dipendenze:**
+2.  **Installa le dipendenze**:
     ```bash
     npm install
     ```
 
-3.  **Avvia il server di sviluppo:**
+3.  **Avvia il server di sviluppo**:
     ```bash
     npm run dev
     ```
-    L'app sarà disponibile su [http://localhost:3000](http://localhost:3000).
 
-## 📂 Struttura del Progetto
+4.  **Apri l'app**:
+    Visita [http://localhost:3000](http://localhost:3000)
 
-```
-helloTable/
-├── src/
-│   ├── app/          # Next.js App Router pages & layouts
-│   ├── components/   # Reusable UI components
-│   └── lib/          # Utility functions & shared logic
-├── public/           # Static assets
-└── ...config files   # Tailwind, Next.js, TypeScript configs
-```
+## 🎯 Funzionalità (Attuali & Pianificate)
 
-##  Roadmap
+- [x] **Planimetria Interattiva**: Layout tavoli tramite drag and drop.
+- [x] **Gestione Tavoli**: Setup guidato per il layout del ristorante.
+- [x] **Logica Prenotazioni**: Simulazione base del flusso di prenotazione.
+- [ ] **Sincronizzazione Real-time**: Aggiornamenti istantanei su tutti i dispositivi (in corso).
+- [ ] **Integrazione Database**: Storage persistente per layout e prenotazioni (in corso).
 
-- [ ] **Data Layer:** Integrazione Database SQL (Postgres) per gestione Tavoli e Prenotazioni.
-- [ ] **Table Management:** Drag & Drop interfaccia per unire e spostare tavoli.
-- [ ] **Real-time:** Sincronizzazione istantanea stato tavoli (WebSocket).
-- [ ] **Orders:** Gestione comande associata ai tavoli logici.
+## 🤝 Contribuire
+
+Vedi `task.md` per la roadmap corrente e i task di sviluppo.

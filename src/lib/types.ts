@@ -13,6 +13,7 @@ export type ReservationStatus = 'CONFIRMED' | 'PENDING' | 'ARRIVED' | 'COMPLETED
 export interface Reservation {
     id: string;
     tableId?: string; // Optional: if null/undefined, it's an unassigned reservation
+    tableName?: string; // Optional: specific table name for merged tables
     firstName: string;
     lastName: string;
     email?: string;
@@ -33,7 +34,7 @@ export interface TableData {
     capacity: number;
     originalCapacity: number; // To track resets
     status: TableStatus;
-    
+
     // Flag for Extra/Temporary tables
     isTemporary?: boolean;
 

@@ -511,8 +511,11 @@ const TableDetails: React.FC<TableDetailsProps> = ({
                                                 </div>
                                                 {res.notes && <div className="text-xs text-gray-400 mt-1 italic">"{res.notes}"</div>}
                                             </div>
-                                            <div className={`font-mono text-xl ${res.status === 'PENDING' ? 'text-orange-400' : (isArrived ? 'text-aura-secondary' : 'text-aura-gold')}`}>
-                                                {res.time}
+                                            <div className="flex flex-col items-end">
+                                                <div className={`font-mono text-xl ${res.status === 'PENDING' ? 'text-orange-400' : (isArrived ? 'text-aura-secondary' : 'text-aura-gold')}`}>
+                                                    {res.time}
+                                                </div>
+                                                {res.tableName && <span className="text-[10px] bg-aura-primary/10 text-aura-primary px-1.5 py-0.5 rounded border border-aura-primary/20 uppercase font-bold mt-1">Tavolo {res.tableName}</span>}
                                             </div>
                                         </div>
                                     );

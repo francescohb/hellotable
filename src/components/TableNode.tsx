@@ -31,7 +31,10 @@ const TableNode: React.FC<TableNodeProps> = ({
   selectedDate
 }) => {
   // Logic: A table is visually "RESERVED" if it's FREE but has at least one reservation FOR THE SELECTED DATE
-  const todaysReservations = data.reservations?.filter(r => r.date === selectedDate) || [];
+  // Filter for ACTIVE reservations (CONFIRMED or PENDING) only for display
+  const todaysReservations = data.reservations?.filter(r =>
+    r.date === selectedDate && (r.status === 'CONFIRMED' || r.status === 'PENDING')
+  ) || [];
   const isReserved = data.status === 'FREE' && todaysReservations.length > 0;
 
   // Get the most relevant reservation
@@ -61,7 +64,7 @@ const TableNode: React.FC<TableNodeProps> = ({
 
   // Determine SVG border radius for the marching ants effect
   const getSvgRadius = (shape: TableShape, extended: boolean) => {
-    if (extended) return 24; 
+    if (extended) return 24;
     switch (shape) {
       case 'circle': return '50%';
       case 'square': return 24;
@@ -112,9 +115,9 @@ const TableNode: React.FC<TableNodeProps> = ({
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      onContextMenu(e, data.id);
+    e.preventDefault();
+    e.stopPropagation();
+    onContextMenu(e, data.id);
   };
 
   const isPending = nextReservation?.status === 'PENDING';
@@ -125,13 +128,13 @@ const TableNode: React.FC<TableNodeProps> = ({
   // Dynamic Styles based on Interaction State
   let containerClasses = "";
   if (isMergeError) {
-      containerClasses = "border-aura-red/50 bg-aura-red/10 z-50";
+    containerClasses = "border-aura-red/50 bg-aura-red/10 z-50";
   } else if (isMergeCandidate) {
-      containerClasses = "z-50 bg-aura-primary/10"; // Border handled by SVG
+    containerClasses = "z-50 bg-aura-primary/10"; // Border handled by SVG
   } else if (isPending) {
-      containerClasses = "border-orange-500/50 bg-orange-500/5 z-10";
+    containerClasses = "border-orange-500/50 bg-orange-500/5 z-10";
   } else {
-      containerClasses = `${visualStyle.border} ${visualStyle.bg} ${data.status === 'FREE' && !isReserved ? 'bg-opacity-5' : 'bg-opacity-10'} ${isSelected ? 'z-50' : 'z-10'}`;
+    containerClasses = `${visualStyle.border} ${visualStyle.bg} ${data.status === 'FREE' && !isReserved ? 'bg-opacity-5' : 'bg-opacity-10'} ${isSelected ? 'z-50' : 'z-10'}`;
   }
 
   return (
@@ -139,9 +142,9 @@ const TableNode: React.FC<TableNodeProps> = ({
       drag
       dragMomentum={false}
       dragElastic={0.05}
-      whileDrag={{ 
-        scale: 1.05, 
-        cursor: 'grabbing', 
+      whileDrag={{
+        scale: 1.05,
+        cursor: 'grabbing',
         zIndex: 100,
         boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.1)"
       }}
@@ -170,29 +173,29 @@ const TableNode: React.FC<TableNodeProps> = ({
       {/* MARCHING ANTS DASHED BORDER (SVG) - Green for Success, Red for Error */}
       {(isMergeCandidate || isMergeError) && (
         <div className="absolute inset-[-12px] pointer-events-none z-0">
-            <svg width="100%" height="100%">
-               <motion.rect
-                  width="100%" 
-                  height="100%" 
-                  rx={svgRadius}
-                  ry={svgRadius}
-                  fill="none"
-                  stroke={isMergeError ? "#ff4d4d" : "#00e36b"} 
-                  strokeWidth="2"
-                  strokeDasharray="8 8"
-                  initial={{ strokeDashoffset: 0 }}
-                  animate={{ strokeDashoffset: -16 }}
-                  transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
-               />
-            </svg>
+          <svg width="100%" height="100%">
+            <motion.rect
+              width="100%"
+              height="100%"
+              rx={svgRadius}
+              ry={svgRadius}
+              fill="none"
+              stroke={isMergeError ? "#ff4d4d" : "#00e36b"}
+              strokeWidth="2"
+              strokeDasharray="8 8"
+              initial={{ strokeDashoffset: 0 }}
+              animate={{ strokeDashoffset: -16 }}
+              transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
+            />
+          </svg>
         </div>
       )}
 
       {/* Error Icon Overlay */}
       {isMergeError && (
-          <div className="absolute -top-4 -right-4 bg-aura-red text-white p-1 rounded-full shadow-lg z-50 animate-bounce">
-              <Ban size={20} />
-          </div>
+        <div className="absolute -top-4 -right-4 bg-aura-red text-white p-1 rounded-full shadow-lg z-50 animate-bounce">
+          <Ban size={20} />
+        </div>
       )}
 
       {/* Top Right Status Dot */}
@@ -238,7 +241,7 @@ const TableNode: React.FC<TableNodeProps> = ({
           </div>
         )}
         {isMergeError && (
-             <span className="text-[10px] font-bold tracking-widest uppercase text-aura-red bg-aura-black/50 px-2 py-0.5 rounded">OCCUPATO</span>
+          <span className="text-[10px] font-bold tracking-widest uppercase text-aura-red bg-aura-black/50 px-2 py-0.5 rounded">OCCUPATO</span>
         )}
       </div>
 

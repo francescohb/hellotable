@@ -95,61 +95,129 @@ export const getMorningScenario = (): { tables: TableData[], floors: string[], v
     now.setHours(11, 0, 0, 0);
 
     // --- LOGICA DI UNIONE TAVOLI (SIMULAZIONE) ---
-    // Uniamo c2 e c3 (Sala Caminetto)
-    const t1 = tables.find(t => t.id === 'c2');
-    const t2 = tables.find(t => t.id === 'c3');
 
-    if (t1 && t2) {
-        tables = tables.filter(t => t.id !== 'c2' && t.id !== 'c3');
+    // CASE A: 101+102 (m1+m2) - Sempre uniti
+    const m1 = tables.find(t => t.id === 'm1');
+    const m2 = tables.find(t => t.id === 'm2');
 
-        const mergedId = `merged-${t1.id}-${t2.id}`;
+    if (m1 && m2) {
+        tables = tables.filter(t => t.id !== 'm1' && t.id !== 'm2');
+
+        const mergedId = `merged-${m1.id}-${m2.id}`;
         const mergedTable: TableData = {
             id: mergedId,
-            floor: t1.floor,
-            name: `${t1.name}+${t2.name}`,
+            floor: m1.floor,
+            name: `${m1.name}+${m2.name}`,
             position: {
-                x: (t1.position.x + t2.position.x) / 2,
-                y: (t1.position.y + t2.position.y) / 2
+                x: (m1.position.x + m2.position.x) / 2,
+                y: (m1.position.y + m2.position.y) / 2
             },
             shape: 'rectangle',
-            capacity: t1.capacity + t2.capacity,
-            originalCapacity: t1.capacity + t2.capacity,
+            capacity: m1.capacity + m2.capacity,
+            originalCapacity: m1.capacity + m2.capacity,
             status: 'FREE',
             isExtended: false,
-            subTables: [t1, t2],
+            subTables: [m1, m2],
             reservations: [],
             seatedAt: undefined
         };
 
-        // Prenotazione PRANZO (Gruppo unito)
+        // Res 1 (Uniti)
         mergedTable.reservations.push({
-            id: `res-merged-lunch`,
-            firstName: 'Azienda',
-            lastName: 'Tech',
+            id: `res-case-a-1`,
+            firstName: 'Gruppo',
+            lastName: 'Alpha',
             date: todayStr,
-            time: '13:00',
-            guests: 4,
+            time: '12:00',
+            guests: 6,
             status: 'CONFIRMED',
-            notes: 'Pranzo di lavoro - Tavoli uniti'
+            notes: 'Turno 1 - Uniti'
         });
 
-        // Prenotazione POMERIGGIO/SERA (Singolo tavolo)
+        // Res 2 (Uniti) - Nessun tableName specificato = per il tavolo unito
         mergedTable.reservations.push({
-            id: `res-merged-single-later`,
-            firstName: 'Sig.',
-            lastName: 'Bianchi',
+            id: `res-case-a-2`,
+            firstName: 'Gruppo',
+            lastName: 'Beta',
             date: todayStr,
-            time: '20:00',
-            guests: 2,
+            time: '14:00',
+            guests: 6,
             status: 'CONFIRMED',
-            notes: 'SOLO TAVOLO C2 - Separare dopo pranzo'
+            notes: 'Turno 2 - Ancora uniti'
         });
 
         tables.push(mergedTable);
     }
 
+    // CASE B: 103+104 (m3+m4) - Uniti poi separati
+    const m3 = tables.find(t => t.id === 'm3');
+    const m4 = tables.find(t => t.id === 'm4');
+
+    if (m3 && m4) {
+        tables = tables.filter(t => t.id !== 'm3' && t.id !== 'm4');
+
+        const mergedId2 = `merged-${m3.id}-${m4.id}`;
+        const mergedTable2: TableData = {
+            id: mergedId2,
+            floor: m3.floor,
+            name: `${m3.name}+${m4.name}`,
+            position: {
+                x: (m3.position.x + m4.position.x) / 2,
+                y: (m3.position.y + m4.position.y) / 2
+            },
+            shape: 'rectangle',
+            capacity: m3.capacity + m4.capacity,
+            originalCapacity: m3.capacity + m4.capacity,
+            status: 'FREE',
+            isExtended: false,
+            subTables: [m3, m4],
+            reservations: [],
+            seatedAt: undefined
+        };
+
+        // Res 1 (Uniti)
+        mergedTable2.reservations.push({
+            id: `res-case-b-1`,
+            firstName: 'Famiglia',
+            lastName: 'Gamma',
+            date: todayStr,
+            time: '12:00',
+            guests: 5,
+            status: 'CONFIRMED',
+            notes: 'Turno 1 - Uniti'
+        });
+
+        // Res 2 (Separati - m3)
+        mergedTable2.reservations.push({
+            id: `res-case-b-2-m3`,
+            firstName: 'Sig.',
+            lastName: 'Delta',
+            date: todayStr,
+            time: '14:00',
+            guests: 2,
+            status: 'CONFIRMED',
+            notes: 'Turno 2 - Separato',
+            tableName: '103'
+        });
+
+        // Res 3 (Separati - m4)
+        mergedTable2.reservations.push({
+            id: `res-case-b-2-m4`,
+            firstName: 'Sig.',
+            lastName: 'Epsilon',
+            date: todayStr,
+            time: '14:00',
+            guests: 2,
+            status: 'CONFIRMED',
+            notes: 'Turno 2 - Separato',
+            tableName: '104'
+        });
+
+        tables.push(mergedTable2);
+    }
+
     // IDs da mantenere LIBERI e SENZA PRENOTAZIONI imminenti (Buffer per walk-in/unioni)
-    const alwaysFreeIds = ['m1', 'm2', 'v1', 'v2', 't1', 't2'];
+    const alwaysFreeIds = ['v1', 'v2', 't1', 't2'];
 
     // Imposta prenotazioni pranzo
     tables.forEach((t, i) => {
@@ -237,7 +305,8 @@ export const getEveningScenario = (): { tables: TableData[], floors: string[], v
             time: '22:30',
             guests: 2,
             status: 'CONFIRMED',
-            notes: 'SOLO TAVOLO 109 (m9) - Separare dopo turno attuale'
+            notes: 'Separare dopo turno attuale',
+            tableName: '109'
         });
 
         tables.push(mergedTable);

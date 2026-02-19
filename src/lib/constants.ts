@@ -1,5 +1,5 @@
 
-import { TableData, TableShape, Reservation } from './types';
+import { TableData, TableShape, Reservation, TurnTimeConfig } from './types';
 
 // Palette mapping for statuses (Tailwind classes)
 export const STATUS_STYLES = {
@@ -29,7 +29,38 @@ export const STATUS_STYLES = {
 
 export const MERGE_THRESHOLD = 80;
 export const STALL_THRESHOLD_MINUTES = 20;
-export const RESERVATION_DURATION_MINUTES = 120; // 2h minimum gap between reservations
+
+export const DEFAULT_TURN_TIME_CONFIG: TurnTimeConfig = {
+    small: 75,   // 1h15m for 1-2 pax
+    medium: 105, // 1h45m for 3-5 pax
+    large: 135   // 2h15m for 6+ pax
+};
+
+// Dynamic Turn Time based on guests
+export const getTurnTime = (guests: number, config: TurnTimeConfig = DEFAULT_TURN_TIME_CONFIG): number => {
+    if (guests <= 2) return config.small;
+    if (guests <= 5) return config.medium;
+    return config.large;
+};
+
+// Advanced overlap check using dynamic turn times
+export const checkOverlap = (
+    time1: string, guests1: number,
+    time2: string, guests2: number,
+    config: TurnTimeConfig = DEFAULT_TURN_TIME_CONFIG
+): boolean => {
+    const [h1, m1] = time1.split(':').map(Number);
+    const [h2, m2] = time2.split(':').map(Number);
+
+    const start1 = h1 * 60 + m1;
+    const end1 = start1 + getTurnTime(guests1, config);
+
+    const start2 = h2 * 60 + m2;
+    const end2 = start2 + getTurnTime(guests2, config);
+
+    // overlap: start1 < end2 AND start2 < end1
+    return start1 < end2 && start2 < end1;
+};
 
 export const INITIAL_TABLES: TableData[] = []; // Empty default
 
@@ -128,23 +159,23 @@ const generateDemoTables = (): TableData[] => {
     // Row 1: Wall banquettes (Squares)
     addTable('m1', floorMain, '101', startX, startY, 'square', 4);
     addTable('m2', floorMain, '102', startX + GAP, startY, 'square', 4);
-    addTable('m3', floorMain, '103', startX + GAP*2, startY, 'square', 4);
-    addTable('m4', floorMain, '104', startX + GAP*3, startY, 'square', 4);
-    addTable('m5', floorMain, '105', startX + GAP*4, startY, 'rectangle', 6);
+    addTable('m3', floorMain, '103', startX + GAP * 2, startY, 'square', 4);
+    addTable('m4', floorMain, '104', startX + GAP * 3, startY, 'square', 4);
+    addTable('m5', floorMain, '105', startX + GAP * 4, startY, 'rectangle', 6);
 
     // Row 2: Center Rounds
     startY += GAP;
-    addTable('m6', floorMain, '106', startX + GAP*0.5, startY, 'circle', 4);
-    addTable('m7', floorMain, '107', startX + GAP*2, startY, 'circle', 5);
-    addTable('m8', floorMain, '108', startX + GAP*3.5, startY, 'circle', 4);
+    addTable('m6', floorMain, '106', startX + GAP * 0.5, startY, 'circle', 4);
+    addTable('m7', floorMain, '107', startX + GAP * 2, startY, 'circle', 5);
+    addTable('m8', floorMain, '108', startX + GAP * 3.5, startY, 'circle', 4);
 
     // Row 3: More squares
     startY += GAP;
     addTable('m9', floorMain, '109', startX, startY, 'square', 4);
     addTable('m10', floorMain, '110', startX + GAP, startY, 'square', 2);
-    addTable('m11', floorMain, '111', startX + GAP*2, startY, 'square', 2);
-    addTable('m12', floorMain, '112', startX + GAP*3, startY, 'square', 4);
-    addTable('m13', floorMain, '113', startX + GAP*4, startY, 'rectangle', 6);
+    addTable('m11', floorMain, '111', startX + GAP * 2, startY, 'square', 2);
+    addTable('m12', floorMain, '112', startX + GAP * 3, startY, 'square', 4);
+    addTable('m13', floorMain, '113', startX + GAP * 4, startY, 'rectangle', 6);
 
 
     // --- 2. SALA CAMINETTO (Top Right Quadrant) ---
@@ -154,17 +185,17 @@ const generateDemoTables = (): TableData[] => {
     startY = -1400; // Aligned with main hall top
 
     // Big central oval table
-    addTable('c1', floorFire, 'C1', startX + GAP*1.2, startY + GAP, 'oval', 8);
+    addTable('c1', floorFire, 'C1', startX + GAP * 1.2, startY + GAP, 'oval', 8);
 
     // Surrounding small tables
     addTable('c2', floorFire, 'C2', startX, startY, 'square', 2);
     addTable('c3', floorFire, 'C3', startX + GAP, startY, 'square', 2);
-    addTable('c4', floorFire, 'C4', startX + GAP*2.5, startY, 'square', 4);
+    addTable('c4', floorFire, 'C4', startX + GAP * 2.5, startY, 'square', 4);
 
-    addTable('c5', floorFire, 'C5', startX, startY + GAP*1.2, 'circle', 4);
-    addTable('c6', floorFire, 'C6', startX + GAP*2.5, startY + GAP*1.2, 'circle', 4);
+    addTable('c5', floorFire, 'C5', startX, startY + GAP * 1.2, 'circle', 4);
+    addTable('c6', floorFire, 'C6', startX + GAP * 2.5, startY + GAP * 1.2, 'circle', 4);
 
-    addTable('c7', floorFire, 'C7', startX + GAP*0.5, startY + GAP*2.2, 'rectangle', 6);
+    addTable('c7', floorFire, 'C7', startX + GAP * 0.5, startY + GAP * 2.2, 'rectangle', 6);
 
 
     // --- 3. VERANDA (Bottom Left Quadrant) ---
@@ -175,11 +206,11 @@ const generateDemoTables = (): TableData[] => {
 
     // Two rows of tables
     addTable('v1', floorVeranda, 'V1', startX, startY, 'square', 4);
-    addTable('v2', floorVeranda, 'V2', startX + GAP*1.2, startY, 'square', 4);
-    addTable('v3', floorVeranda, 'V3', startX + GAP*2.4, startY, 'square', 4);
+    addTable('v2', floorVeranda, 'V2', startX + GAP * 1.2, startY, 'square', 4);
+    addTable('v3', floorVeranda, 'V3', startX + GAP * 2.4, startY, 'square', 4);
 
     addTable('v4', floorVeranda, 'V4', startX, startY + GAP, 'rectangle', 6);
-    addTable('v5', floorVeranda, 'V5', startX + GAP*2, startY + GAP, 'rectangle', 6);
+    addTable('v5', floorVeranda, 'V5', startX + GAP * 2, startY + GAP, 'rectangle', 6);
 
 
     // --- 4. TERRAZZA (Bottom Right Quadrant) ---
@@ -188,13 +219,13 @@ const generateDemoTables = (): TableData[] => {
     startX = 700;
     startY = 400;
 
-    addTable('t1', floorTerrace, 'T1', startX + GAP*0.5, startY, 'circle', 2);
-    addTable('t2', floorTerrace, 'T2', startX + GAP*1.5, startY, 'circle', 2);
-    addTable('t3', floorTerrace, 'T3', startX + GAP*2.5, startY, 'circle', 2);
+    addTable('t1', floorTerrace, 'T1', startX + GAP * 0.5, startY, 'circle', 2);
+    addTable('t2', floorTerrace, 'T2', startX + GAP * 1.5, startY, 'circle', 2);
+    addTable('t3', floorTerrace, 'T3', startX + GAP * 2.5, startY, 'circle', 2);
 
     addTable('t4', floorTerrace, 'T4', startX, startY + GAP, 'square', 4);
-    addTable('t5', floorTerrace, 'T5', startX + GAP*1.2, startY + GAP, 'square', 4);
-    addTable('t6', floorTerrace, 'T6', startX + GAP*2.4, startY + GAP, 'square', 4);
+    addTable('t5', floorTerrace, 'T5', startX + GAP * 1.2, startY + GAP, 'square', 4);
+    addTable('t6', floorTerrace, 'T6', startX + GAP * 2.4, startY + GAP, 'square', 4);
 
     return tables;
 };

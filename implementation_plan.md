@@ -1,38 +1,29 @@
-# Improving Merge Modal UX
+# Fixing Table Timer at 00:00
 
 ## Goal Description
-Enhance the table merging experience by centering the confirmation modal over the tables, preventing map interaction (zoom/pan) while the modal is open, and adding a backdrop dimming effect.
+Ensure that the timer on occupied tables starts counting immediately upon "Occupy" or "Check-in". currently, it remains stuck at 00:00.
 
-## User Review Required
-> [!NOTE]
-> The modal will now appear directly on top of the tables being merged, blocking the view of the tables themselves slightly. This is per the user request "la modale di conferma di unione tavoli deve sovrapporsi ai due tavoli".
+## Diagnosis
+The `TableNode` component calculates duration based on satisfaction of `currentTime - data.seatedAt`.
+If it stays at 00:00, it means either:
+1. `currentTime` is not updating (unlikely, as we saw the interval).
+2. `data.seatedAt` is essentially equal to `currentTime` and not static (unlikely).
+3. `data.seatedAt` is NOT being set or saved in the state correctly.
+4. The formatting logic returns 00:00 for small differences and doesn't update.
 
-## Proposed Changes
+## PROPOSED CHANGES
 
-### Components
+### [FloorManager.tsx](file:///Users/francescomaggi/Desktop/Progetti/hellotable/src/components/FloorManager.tsx)
 
-#### [MODIFY] [FloorManager.tsx](file:///Users/francescomaggi/Desktop/Progetti/hellotable/src/components/FloorManager.tsx)
--   **Update `onWheel`**: Add a check for `pendingMerge` to return early and prevent zooming/panning.
--   **Update Background `drag`**: Add `!pendingMerge` to the `drag` condition of the map container `motion.div`.
--   **Update `mergeModalPosition`**:
-    -   Calculate the true center of the two merging tables.
-    -   Remove the "-60" offset to place it directly over.
--   **Add Overlay**:
-    -   Insert a `<motion.div>` overlay with `bg-black/50` (or similar opacity) and `z-[90]` when `pendingMerge` is true.
-    -   Position it strictly absolute covering the entire canvas container.
+1.  **Check `updateTableStatus`**: Ensure `seatedAt` is set to `Date.now()`.
+2.  **Check `startTimeOffsetRef` logic**: The `currentTime` state initialization might be causing issues if `initialTime` matches `Date.now()` too closely or resets.
+
+### [TableNode.tsx](file:///Users/francescomaggi/Desktop/Progetti/hellotable/src/components/TableNode.tsx)
+
+1.  **Debug Duration**: The calculation `Math.max(0, currentTime - data.seatedAt)` should yield positive results.
+2.  **Verify Updates**: Ensure the component re-renders when `currentTime` changes.
 
 ## Verification Plan
-
-### Manual Verification
-1.  **Start the app** (`npm run dev`).
-2.  **Drag one table onto another** to trigger the merge confirmation.
-3.  **Verify Visuals**:
-    -   The background should darken (opacity drop).
-    -   The merge modal should appear centering the two tables (overlapping them).
-4.  **Verify Interaction**:
-    -   Try to scroll (wheel) -> Should be blocked.
-    -   Try to drag the background -> Should be blocked.
-    -   Try to drag other tables -> Should be blocked (by overlay).
-5.  **Confirm/Cancel**:
-    -   Click X -> Everything should return to normal (undimmed, interactive).
-    -   Click Check -> Tables merge, everything returns to normal.
+1.  Open the app.
+2.  Click "Occupa Tavolo".
+3.  Watch the timer. It should increment: 00:01, 00:02...

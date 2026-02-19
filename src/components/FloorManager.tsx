@@ -582,8 +582,8 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
             if (t.id !== id) return t;
             const updates: Partial<TableData> = { status };
             if (status === 'OCCUPIED' && t.status !== 'OCCUPIED') {
-                updates.seatedAt = Date.now();
-                updates.lastOrderAt = Date.now();
+                updates.seatedAt = currentTime;
+                updates.lastOrderAt = currentTime;
             }
             if (status === 'FREE') {
                 updates.seatedAt = undefined;

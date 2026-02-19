@@ -37,49 +37,49 @@ const generateBaseLayout = (): TableData[] => {
     let startX = -800; let startY = -1400;
     addTable('m1', floorMain, '101', startX, startY, 'square', 4);
     addTable('m2', floorMain, '102', startX + GAP, startY, 'square', 4);
-    addTable('m3', floorMain, '103', startX + GAP*2, startY, 'square', 4);
-    addTable('m4', floorMain, '104', startX + GAP*3, startY, 'square', 4);
-    addTable('m5', floorMain, '105', startX + GAP*4, startY, 'rectangle', 6);
+    addTable('m3', floorMain, '103', startX + GAP * 2, startY, 'square', 4);
+    addTable('m4', floorMain, '104', startX + GAP * 3, startY, 'square', 4);
+    addTable('m5', floorMain, '105', startX + GAP * 4, startY, 'rectangle', 6);
     startY += GAP;
-    addTable('m6', floorMain, '106', startX + GAP*0.5, startY, 'circle', 4);
-    addTable('m7', floorMain, '107', startX + GAP*2, startY, 'circle', 5);
-    addTable('m8', floorMain, '108', startX + GAP*3.5, startY, 'circle', 4);
+    addTable('m6', floorMain, '106', startX + GAP * 0.5, startY, 'circle', 4);
+    addTable('m7', floorMain, '107', startX + GAP * 2, startY, 'circle', 5);
+    addTable('m8', floorMain, '108', startX + GAP * 3.5, startY, 'circle', 4);
     startY += GAP;
     addTable('m9', floorMain, '109', startX, startY, 'square', 4);
     addTable('m10', floorMain, '110', startX + GAP, startY, 'square', 2);
-    addTable('m11', floorMain, '111', startX + GAP*2, startY, 'square', 2);
-    addTable('m12', floorMain, '112', startX + GAP*3, startY, 'square', 4);
-    addTable('m13', floorMain, '113', startX + GAP*4, startY, 'rectangle', 6);
+    addTable('m11', floorMain, '111', startX + GAP * 2, startY, 'square', 2);
+    addTable('m12', floorMain, '112', startX + GAP * 3, startY, 'square', 4);
+    addTable('m13', floorMain, '113', startX + GAP * 4, startY, 'rectangle', 6);
 
     // --- 2. SALA CAMINETTO ---
     const floorFire = 'Sala Caminetto';
     startX = 700; startY = -1400;
-    addTable('c1', floorFire, 'C1', startX + GAP*1.2, startY + GAP, 'oval', 8);
+    addTable('c1', floorFire, 'C1', startX + GAP * 1.2, startY + GAP, 'oval', 8);
     addTable('c2', floorFire, 'C2', startX, startY, 'square', 2);
     addTable('c3', floorFire, 'C3', startX + GAP, startY, 'square', 2);
-    addTable('c4', floorFire, 'C4', startX + GAP*2.5, startY, 'square', 4);
-    addTable('c5', floorFire, 'C5', startX, startY + GAP*1.2, 'circle', 4);
-    addTable('c6', floorFire, 'C6', startX + GAP*2.5, startY + GAP*1.2, 'circle', 4);
-    addTable('c7', floorFire, 'C7', startX + GAP*0.5, startY + GAP*2.2, 'rectangle', 6);
+    addTable('c4', floorFire, 'C4', startX + GAP * 2.5, startY, 'square', 4);
+    addTable('c5', floorFire, 'C5', startX, startY + GAP * 1.2, 'circle', 4);
+    addTable('c6', floorFire, 'C6', startX + GAP * 2.5, startY + GAP * 1.2, 'circle', 4);
+    addTable('c7', floorFire, 'C7', startX + GAP * 0.5, startY + GAP * 2.2, 'rectangle', 6);
 
     // --- 3. VERANDA ---
     const floorVeranda = 'Veranda';
     startX = -800; startY = 400;
     addTable('v1', floorVeranda, 'V1', startX, startY, 'square', 4);
-    addTable('v2', floorVeranda, 'V2', startX + GAP*1.2, startY, 'square', 4);
-    addTable('v3', floorVeranda, 'V3', startX + GAP*2.4, startY, 'square', 4);
+    addTable('v2', floorVeranda, 'V2', startX + GAP * 1.2, startY, 'square', 4);
+    addTable('v3', floorVeranda, 'V3', startX + GAP * 2.4, startY, 'square', 4);
     addTable('v4', floorVeranda, 'V4', startX, startY + GAP, 'rectangle', 6);
-    addTable('v5', floorVeranda, 'V5', startX + GAP*2, startY + GAP, 'rectangle', 6);
+    addTable('v5', floorVeranda, 'V5', startX + GAP * 2, startY + GAP, 'rectangle', 6);
 
     // --- 4. TERRAZZA ---
     const floorTerrace = 'Terrazza';
     startX = 700; startY = 400;
-    addTable('t1', floorTerrace, 'T1', startX + GAP*0.5, startY, 'circle', 2);
-    addTable('t2', floorTerrace, 'T2', startX + GAP*1.5, startY, 'circle', 2);
-    addTable('t3', floorTerrace, 'T3', startX + GAP*2.5, startY, 'circle', 2);
+    addTable('t1', floorTerrace, 'T1', startX + GAP * 0.5, startY, 'circle', 2);
+    addTable('t2', floorTerrace, 'T2', startX + GAP * 1.5, startY, 'circle', 2);
+    addTable('t3', floorTerrace, 'T3', startX + GAP * 2.5, startY, 'circle', 2);
     addTable('t4', floorTerrace, 'T4', startX, startY + GAP, 'square', 4);
-    addTable('t5', floorTerrace, 'T5', startX + GAP*1.2, startY + GAP, 'square', 4);
-    addTable('t6', floorTerrace, 'T6', startX + GAP*2.4, startY + GAP, 'square', 4);
+    addTable('t5', floorTerrace, 'T5', startX + GAP * 1.2, startY + GAP, 'square', 4);
+    addTable('t6', floorTerrace, 'T6', startX + GAP * 2.4, startY + GAP, 'square', 4);
 
     return tables;
 };
@@ -87,14 +87,73 @@ const generateBaseLayout = (): TableData[] => {
 // --- SCENARIO 1: MATTINA (11:00) ---
 // Tutto libero, ma con molte prenotazioni per il pranzo (12:00 - 14:30)
 export const getMorningScenario = (): { tables: TableData[], floors: string[], virtualTime: number } => {
-    const tables = generateBaseLayout();
+    let tables = generateBaseLayout();
     const todayStr = new Date().toISOString().split('T')[0];
 
+    // Orario virtuale: 11:00
+    const now = new Date();
+    now.setHours(11, 0, 0, 0);
+
+    // --- LOGICA DI UNIONE TAVOLI (SIMULAZIONE) ---
+    // Uniamo c2 e c3 (Sala Caminetto)
+    const t1 = tables.find(t => t.id === 'c2');
+    const t2 = tables.find(t => t.id === 'c3');
+
+    if (t1 && t2) {
+        tables = tables.filter(t => t.id !== 'c2' && t.id !== 'c3');
+
+        const mergedId = `merged-${t1.id}-${t2.id}`;
+        const mergedTable: TableData = {
+            id: mergedId,
+            floor: t1.floor,
+            name: `${t1.name}+${t2.name}`,
+            position: {
+                x: (t1.position.x + t2.position.x) / 2,
+                y: (t1.position.y + t2.position.y) / 2
+            },
+            shape: 'rectangle',
+            capacity: t1.capacity + t2.capacity,
+            originalCapacity: t1.capacity + t2.capacity,
+            status: 'FREE',
+            isExtended: false,
+            subTables: [t1, t2],
+            reservations: [],
+            seatedAt: undefined
+        };
+
+        // Prenotazione PRANZO (Gruppo unito)
+        mergedTable.reservations.push({
+            id: `res-merged-lunch`,
+            firstName: 'Azienda',
+            lastName: 'Tech',
+            date: todayStr,
+            time: '13:00',
+            guests: 4,
+            status: 'CONFIRMED',
+            notes: 'Pranzo di lavoro - Tavoli uniti'
+        });
+
+        // Prenotazione POMERIGGIO/SERA (Singolo tavolo)
+        mergedTable.reservations.push({
+            id: `res-merged-single-later`,
+            firstName: 'Sig.',
+            lastName: 'Bianchi',
+            date: todayStr,
+            time: '20:00',
+            guests: 2,
+            status: 'CONFIRMED',
+            notes: 'SOLO TAVOLO C2 - Separare dopo pranzo'
+        });
+
+        tables.push(mergedTable);
+    }
+
     // IDs da mantenere LIBERI e SENZA PRENOTAZIONI imminenti (Buffer per walk-in/unioni)
-    const alwaysFreeIds = ['m1', 'm2', 'c2', 'c3', 'v1', 'v2', 't1', 't2'];
+    const alwaysFreeIds = ['m1', 'm2', 'v1', 'v2', 't1', 't2'];
 
     // Imposta prenotazioni pranzo
     tables.forEach((t, i) => {
+        if (t.id.startsWith('merged')) return;
         if (alwaysFreeIds.includes(t.id)) return; // Skip guaranteed free tables
 
         // 70% dei tavoli prenotati per il pranzo
@@ -112,10 +171,6 @@ export const getMorningScenario = (): { tables: TableData[], floors: string[], v
         }
     });
 
-    // Orario virtuale: 11:00
-    const now = new Date();
-    now.setHours(11, 0, 0, 0);
-
     return {
         tables,
         floors: ['Sala Principale', 'Sala Caminetto', 'Veranda', 'Terrazza'],
@@ -126,17 +181,73 @@ export const getMorningScenario = (): { tables: TableData[], floors: string[], v
 // --- SCENARIO 2: SERA (21:25) ---
 // 80% Occupato, servizio in corso, doppi turni
 export const getEveningScenario = (): { tables: TableData[], floors: string[], virtualTime: number } => {
-    const tables = generateBaseLayout();
+    let tables = generateBaseLayout();
     const todayStr = new Date().toISOString().split('T')[0];
 
     // Orario virtuale: 21:25
     const now = new Date();
     now.setHours(21, 25, 0, 0);
 
+    // --- LOGICA DI UNIONE TAVOLI (SIMULAZIONE) ---
+    // Uniamo m9 e m10
+    const t1 = tables.find(t => t.id === 'm9');
+    const t2 = tables.find(t => t.id === 'm10');
+
+    if (t1 && t2) {
+        tables = tables.filter(t => t.id !== 'm9' && t.id !== 'm10');
+
+        const mergedId = `merged-${t1.id}-${t2.id}`;
+        const mergedTable: TableData = {
+            id: mergedId,
+            floor: t1.floor,
+            name: `${t1.name}+${t2.name}`,
+            position: {
+                x: (t1.position.x + t2.position.x) / 2,
+                y: (t1.position.y + t2.position.y) / 2
+            },
+            shape: 'rectangle',
+            capacity: t1.capacity + t2.capacity,
+            originalCapacity: t1.capacity + t2.capacity,
+            status: 'OCCUPIED',
+            isExtended: false,
+            subTables: [t1, t2],
+            reservations: [],
+            seatedAt: now.getTime() - (45 * 60 * 1000),
+            lastOrderAt: now.getTime() - (10 * 60 * 1000)
+        };
+
+        // Prenotazione CORRENTE (Gruppo grande)
+        mergedTable.reservations.push({
+            id: `res-merged-curr`,
+            firstName: 'Gruppo',
+            lastName: 'Rossi',
+            date: todayStr,
+            time: '20:30',
+            guests: 6,
+            status: 'ARRIVED',
+            notes: 'Tavolata unica'
+        });
+
+        // Prenotazione FUTURA (Solo per m9, da separare)
+        mergedTable.reservations.push({
+            id: `res-merged-future`,
+            firstName: 'Coppia',
+            lastName: 'Verdi',
+            date: todayStr,
+            time: '22:30',
+            guests: 2,
+            status: 'CONFIRMED',
+            notes: 'SOLO TAVOLO 109 (m9) - Separare dopo turno attuale'
+        });
+
+        tables.push(mergedTable);
+    }
+
     // IDs da mantenere LIBERI (Coppie adiacenti per demo unione)
     const alwaysFreeIds = ['m1', 'm2', 'c2', 'c3', 'v1', 'v2', 't1', 't2'];
 
     tables.forEach((t, i) => {
+        if (t.id.startsWith('merged')) return;
         if (alwaysFreeIds.includes(t.id)) {
             t.status = 'FREE';
             return;
@@ -148,7 +259,7 @@ export const getEveningScenario = (): { tables: TableData[], floors: string[], v
         if (rand < 0.8) {
             t.status = 'OCCUPIED';
             // Seduti tra le 19:30 e le 21:00 (quindi tra 25 e 115 minuti fa)
-            const minutesAgo = Math.floor(Math.random() * (115 - 25) + 25); 
+            const minutesAgo = Math.floor(Math.random() * (115 - 25) + 25);
             t.seatedAt = now.getTime() - (minutesAgo * 60 * 1000);
             t.lastOrderAt = now.getTime() - (Math.floor(Math.random() * 20) * 60 * 1000); // Ordine recente
 

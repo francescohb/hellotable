@@ -1,29 +1,28 @@
-# Fixing Table Timer at 00:00
+# Evening Service Simulation Update
 
-## Goal Description
-Ensure that the timer on occupied tables starts counting immediately upon "Occupy" or "Check-in". currently, it remains stuck at 00:00.
+## Goal
+Enhance the "Evening Service" simulation to include:
+1.  **Merged Tables**: Simulate tables that have been joined (e.g., for a large group) and are currently occupied.
+2.  **Sequential Single Reservations**: For these merged tables, simulate a *future* reservation that applies to only *one* of the original tables (implying the group will leave and the tables will be separated).
 
-## Diagnosis
-The `TableNode` component calculates duration based on satisfaction of `currentTime - data.seatedAt`.
-If it stays at 00:00, it means either:
-1. `currentTime` is not updating (unlikely, as we saw the interval).
-2. `data.seatedAt` is essentially equal to `currentTime` and not static (unlikely).
-3. `data.seatedAt` is NOT being set or saved in the state correctly.
-4. The formatting logic returns 00:00 for small differences and doesn't update.
+## Proposed Changes
 
-## PROPOSED CHANGES
+### [src/lib/DemoScenarios.ts](file:///Users/francescomaggi/Desktop/Progetti/hellotable/src/lib/DemoScenarios.ts)
 
-### [FloorManager.tsx](file:///Users/francescomaggi/Desktop/Progetti/hellotable/src/components/FloorManager.tsx)
+Modify `getEveningScenario` to:
 
-1.  **Check `updateTableStatus`**: Ensure `seatedAt` is set to `Date.now()`.
-2.  **Check `startTimeOffsetRef` logic**: The `currentTime` state initialization might be causing issues if `initialTime` matches `Date.now()` too closely or resets.
+1.  **Define Merge Targets**: Select distinct pairs of tables to merge (e.g., `m9` + `m10`).
+2.  **Create Merged Entity**:
+    - Calculate center position.
+    - Set `subTables` property.
+    - Set capacity (sum of parts).
+    - Status: `OCCUPIED`.
+3.  **Add Reservations**:
+    - **Current**: Large group (e.g., 8 pax) seated at 20:00.
+    - **Future**: Small group (e.g., 2 pax) at 22:30, with a note "Solo Tavolo m9".
+4.  **Cleanup**: Remove the original single tables from the returned array to avoid duplicates.
 
-### [TableNode.tsx](file:///Users/francescomaggi/Desktop/Progetti/hellotable/src/components/TableNode.tsx)
-
-1.  **Debug Duration**: The calculation `Math.max(0, currentTime - data.seatedAt)` should yield positive results.
-2.  **Verify Updates**: Ensure the component re-renders when `currentTime` changes.
-
-## Verification Plan
-1.  Open the app.
-2.  Click "Occupa Tavolo".
-3.  Watch the timer. It should increment: 00:01, 00:02...
+## Verification
+1.  Login as "Demo Evening".
+2.  Verify the presence of a large merged table.
+3.  Check its details/reservations to see the "Current" large group and the "Future" small reservation with the note.

@@ -8,7 +8,8 @@ import SettingsView from './SettingsModal';
 import ReservationsView from './ReservationsView';
 import DatePicker from './DatePicker';
 import ContextMenu from './ContextMenu';
-import { TableData, Position, TableStatus, Reservation, TableShape } from '../lib/types';
+import { TableData, Position, TableStatus, Reservation, TableShape, TurnTimeConfig } from '../lib/types';
+import { DEFAULT_TURN_TIME_CONFIG } from '../lib/constants';
 
 interface FloorManagerProps {
     onLogout: () => void;
@@ -820,7 +821,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
         }
     };
 
-    const handleAddTable = (floor: string, name: string, capacity: number, shape: TableShape) => {
+    const handleAddTable = (floor: string, name: string, capacity: number, shape: TableShape, turnTimeConf?: TurnTimeConfig) => {
         const newId = `t-${Date.now()}`;
         const targetFloorTables = tables.filter(t => t.floor === floor);
         let safeX = 2000, safeY = 2000, collision = true, attempts = 0;
@@ -832,7 +833,8 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
         }
         setTables(prev => [...prev, {
             id: newId, name, floor, position: { x: safeX, y: safeY }, shape, capacity, originalCapacity: capacity,
-            status: 'FREE', isExtended: false, subTables: [], reservations: []
+            status: 'FREE', isExtended: false, subTables: [], reservations: [],
+            turnTimeConfig: turnTimeConf || DEFAULT_TURN_TIME_CONFIG
         }]);
         setNotification(`Tavolo ${name} aggiunto`);
     };
@@ -983,7 +985,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                 </div>
                                 <motion.div
                                     className="absolute w-[4000px] h-[4000px] origin-top-left z-10"
-                                    drag={!isStatsOpen && !selectedTableId && !pendingMerge} // Disable drag when stats or details are open OR pendingMerge
+                                    drag={!pendingMerge} // Disable drag only when pendingMerge
                                     dragMomentum={false}
                                     animate={{ x: viewPos.x, y: viewPos.y, scale: zoomLevel }}
                                     transition={{ type: 'tween', duration: 0 }}
@@ -1258,7 +1260,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                                                 </span>
                                                             </div>
                                                             <div className="text-[10px] text-gray-500 mt-2">
-                                                                Prenotazioni in attesa
+                                                                Prenotazioni da confermare
                                                             </div>
                                                         </div>
 

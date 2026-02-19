@@ -2,8 +2,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, Search, Users, Clock, ArrowLeft, Plus, Check, X, Filter, ChevronRight, ChevronLeft, CalendarCheck, Utensils, Edit2, Trash2, Map, Grid, Layers, Merge, AlertTriangle } from 'lucide-react';
-import { TableData, Reservation, ReservationStatus } from '../lib/types';
-import { RESERVATION_DURATION_MINUTES } from '../lib/constants';
+import { TableData, Reservation, ReservationStatus, TurnTimeConfig } from '../lib/types';
+import { checkOverlap, getTurnTime, DEFAULT_TURN_TIME_CONFIG } from '../lib/constants';
 import DatePicker from './DatePicker';
 import PaxPicker from './PaxPicker';
 
@@ -33,6 +33,7 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
 
     // Form State
     const [showUnassignedConfirmation, setShowUnassignedConfirmation] = useState(false);
+    const [forceConflictWarning, setForceConflictWarning] = useState<{ tables: string[] } | null>(null);
     const [formData, setFormData] = useState({
         id: null as string | null, // If ID exists, it's an edit
         firstName: '',
@@ -106,13 +107,7 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
     }, [isMultiSelectMode]);
 
 
-    // --- HELPER: CHECK OVERLAP ---
-    const checkOverlap = (time1: string, time2: string) => {
-        const d1 = new Date(`2000-01-01T${time1}`);
-        const d2 = new Date(`2000-01-01T${time2}`);
-        const diffMinutes = Math.abs(d1.getTime() - d2.getTime()) / 60000;
-        return diffMinutes < RESERVATION_DURATION_MINUTES;
-    };
+    // --- HELPER: CHECK OVERLAP (now imported from constants) ---
 
     // --- DERIVED DATA: FILTERED BY DATE ---
     const dailyReservations = useMemo(() => {
@@ -205,17 +200,30 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
         // --- CONFLICT CHECK (2h minimum gap) ---
         // Only check if tables are selected
         const tablesToCheck = isMultiSelectMode ? selectedTableIds : (formData.selectedTableId ? [formData.selectedTableId] : []);
+
+        let hasAnyConflict = false;
+        let conflictingTableNames: string[] = [];
+
         for (const tid of tablesToCheck) {
             const t = tables.find(tb => tb.id === tid);
             if (!t) continue;
             const existing = (t.reservations || []).filter(r => r.date === formData.date && r.id !== formData.id);
-            const conflict = existing.some(r => checkOverlap(r.time, formData.time));
+            const conflict = existing.some(r => checkOverlap(r.time, r.guests, formData.time, formData.pax, t.turnTimeConfig || DEFAULT_TURN_TIME_CONFIG));
             if (conflict) {
-                alert(`Il tavolo ${t.name} ha già una prenotazione entro 2 ore dall'orario selezionato.`);
-                return;
+                hasAnyConflict = true;
+                conflictingTableNames.push(t.name);
             }
         }
 
+        if (hasAnyConflict) {
+            setForceConflictWarning({ tables: conflictingTableNames });
+            return;
+        }
+
+        proceedWithSave();
+    };
+
+    const proceedWithSave = () => {
         const newRes: Reservation = {
             id: formData.id || `res-${Date.now()}`,
             tableId: formData.selectedTableId || undefined,
@@ -269,6 +277,7 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
         setSelectedTableIds([]);
         setIsMultiSelectMode(false);
         setViewMode('list');
+        setForceConflictWarning(null);
     };
 
     const confirmUnassignedSave = () => {
@@ -322,11 +331,9 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
             if (t) {
                 const existing = (t.reservations || []).filter(r => r.date === formData.date && r.id !== formData.id);
                 // Check overlap
-                const conflict = existing.some(r => checkOverlap(r.time, newTime));
-                if (conflict) {
-                    newFormData.selectedTableId = null; // Deselect
-                    // Optional: could show a toast or small alert here. For now, just deselects.
-                }
+                const conflict = existing.some(r => checkOverlap(r.time, r.guests, newTime, formData.pax, t.turnTimeConfig || DEFAULT_TURN_TIME_CONFIG));
+                // We no longer auto-deselect the table here, because the user might want to force it.
+                // We let them keep it selected and warn them on save.
             }
         }
 
@@ -375,7 +382,7 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
     };
 
     const handleTableClick = (tableId: string, hasConflict: boolean) => {
-        if (hasConflict) return;
+        // hasConflict check removed to allow the user to select and force it
 
         if (isMultiSelectMode) {
             setSelectedTableIds(prev => {
@@ -542,7 +549,7 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
                                                     <td className="p-4 font-mono text-aura-primary font-bold">
                                                         {item.res.time}
                                                         {item.res.status === 'PENDING' && (
-                                                            <span className="block mt-1 text-[9px] text-orange-400 uppercase font-bold tracking-wider">In Attesa</span>
+                                                            <span className="block mt-1 text-[9px] text-orange-400 uppercase font-bold tracking-wider">Da Confermare</span>
                                                         )}
                                                     </td>
                                                     <td className="p-4 font-medium text-white">
@@ -694,10 +701,8 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
                                                         const tb = tables.find(tbl => tbl.id === formData.selectedTableId);
                                                         if (tb) {
                                                             const existing = (tb.reservations || []).filter(r => r.date === formData.date && r.id !== formData.id);
-                                                            const hasConflict = existing.some(r => checkOverlap(r.time, t));
-                                                            if (hasConflict) {
-                                                                newFormData.selectedTableId = null;
-                                                            }
+                                                            const hasConflict = existing.some(r => checkOverlap(r.time, r.guests, t, formData.pax, tb.turnTimeConfig || DEFAULT_TURN_TIME_CONFIG));
+                                                            // Similar to TimePicker logic above, we no longer auto-deselect the table to permit forcing it.
                                                         }
                                                     }
                                                     setFormData(newFormData);
@@ -732,7 +737,7 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
                                                 onClick={() => setFormData({ ...formData, status: 'PENDING' })}
                                                 className={`flex-1 py-2 text-xs font-bold rounded-lg uppercase transition-all cursor-pointer ${formData.status === 'PENDING' ? 'bg-orange-500 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
                                             >
-                                                In Attesa
+                                                Da Confermare
                                             </button>
                                         </div>
                                     </div>
@@ -874,7 +879,7 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
                                         // Check overlap for THIS table
                                         // Filter reservations for selected date, EXCLUDING current reservation being edited (if any)
                                         const todaysReservations = table.reservations?.filter(r => r.date === formData.date && r.id !== formData.id) || [];
-                                        const hasConflict = todaysReservations.some(r => checkOverlap(r.time, formData.time));
+                                        const hasConflict = todaysReservations.some(r => checkOverlap(r.time, r.guests, formData.time, formData.pax, table.turnTimeConfig || DEFAULT_TURN_TIME_CONFIG));
 
                                         const isSelected = isMultiSelectMode
                                             ? selectedTableIds.includes(table.id)
@@ -895,7 +900,7 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
                                                 className={`
                                                 relative p-4 rounded-xl border transition-all group
                                                 ${hasConflict
-                                                        ? 'bg-aura-black/20 border-aura-border opacity-50 cursor-not-allowed'
+                                                        ? 'bg-aura-black/20 border-aura-border hover:border-aura-red hover:bg-aura-red/10 cursor-pointer opacity-75'
                                                         : 'cursor-pointer'
                                                     }
                                                 ${isSelected
@@ -931,7 +936,7 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
                                                         </div>
                                                         <div className="flex flex-wrap gap-1">
                                                             {todaysReservations.sort((a, b) => a.time.localeCompare(b.time)).map(r => {
-                                                                const isConflictTime = checkOverlap(r.time, formData.time);
+                                                                const isConflictTime = checkOverlap(r.time, r.guests, formData.time, formData.pax, table.turnTimeConfig || DEFAULT_TURN_TIME_CONFIG);
                                                                 return (
                                                                     <span
                                                                         key={r.id}
@@ -993,6 +998,39 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
                                     className="flex-1 py-3 rounded-xl font-bold bg-aura-gold text-black hover:bg-white transition-colors cursor-pointer"
                                 >
                                     Conferma
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* FORCE CONFLICT CONFIRMATION MODAL */}
+            {forceConflictWarning && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-aura-black/80 backdrop-blur-sm">
+                    <div className="bg-aura-card border border-aura-border rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <div className="flex flex-col items-center text-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-aura-red/20 flex items-center justify-center text-aura-red">
+                                <AlertTriangle size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-white mb-2">Conflitto Orario</h3>
+                                <p className="text-sm text-gray-400">
+                                    Attenzione: i tavoli <span className="text-white font-medium">[{forceConflictWarning.tables.join(', ')}]</span> hanno già una prenotazione in conflitto con l'orario o la permanenza prevista. Vuoi forzare l'inserimento?
+                                </p>
+                            </div>
+                            <div className="flex gap-3 w-full mt-2">
+                                <button
+                                    onClick={() => setForceConflictWarning(null)}
+                                    className="flex-1 py-3 rounded-xl font-bold bg-aura-card border border-aura-border text-gray-400 hover:text-white hover:border-white/50 transition-colors cursor-pointer"
+                                >
+                                    Annulla
+                                </button>
+                                <button
+                                    onClick={proceedWithSave}
+                                    className="flex-1 py-3 rounded-xl font-bold bg-aura-red text-white hover:bg-red-500 transition-colors cursor-pointer"
+                                >
+                                    Forza
                                 </button>
                             </div>
                         </div>

@@ -227,7 +227,7 @@ const TableNode: React.FC<TableNodeProps> = ({
         {isReserved && nextReservation && !isMergeError && (
           <div className="flex flex-col items-center gap-0.5">
             <span className={`text-[10px] font-bold tracking-widest uppercase ${resColorClass}`}>
-              {isPending ? 'IN ATTESA' : 'PRENOTATO'}
+              {isPending ? 'DA CONFERMARE' : 'PRENOTATO'}
             </span>
             <span className={`text-xs font-medium ${isPending ? 'text-orange-400/80' : 'text-aura-gold/80'}`}>
               {nextReservation.time}

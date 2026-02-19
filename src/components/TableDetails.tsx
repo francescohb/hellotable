@@ -1,8 +1,8 @@
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
 import { Users, Clock, X, ArrowRightLeft, Utensils, Divide, RotateCcw, Minus, Plus, Edit2, Calendar, Trash2, CalendarPlus, Check, AlertTriangle, UserCheck, CheckCircle, Anchor } from 'lucide-react';
-import { TableData, TableStatus, Reservation, ReservationStatus } from '../lib/types';
-import { STATUS_STYLES, RESERVATION_DURATION_MINUTES } from '../lib/constants';
+import { TableData, TableStatus, Reservation, ReservationStatus, TurnTimeConfig } from '../lib/types';
+import { STATUS_STYLES, checkOverlap, getTurnTime, DEFAULT_TURN_TIME_CONFIG } from '../lib/constants';
 import DatePicker from './DatePicker';
 import PaxPicker from './PaxPicker';
 
@@ -64,6 +64,7 @@ const TableDetails: React.FC<TableDetailsProps> = ({
     const [confirmResetTable, setConfirmResetTable] = useState(false);
     const [confirmSplitTable, setConfirmSplitTable] = useState(false);
     const [confirmDeleteResId, setConfirmDeleteResId] = useState<string | null>(null);
+    const [forceConflictWarning, setForceConflictWarning] = useState<boolean>(false);
 
     // Sync temp name when table selection changes
     useEffect(() => {
@@ -104,13 +105,7 @@ const TableDetails: React.FC<TableDetailsProps> = ({
         return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }, [table?.seatedAt, table?.status, currentTime]);
 
-    // Check Overlap Helper
-    const checkOverlap = (time1: string, time2: string) => {
-        const d1 = new Date(`2000-01-01T${time1}`);
-        const d2 = new Date(`2000-01-01T${time2}`);
-        const diffMinutes = Math.abs(d1.getTime() - d2.getTime()) / 60000;
-        return diffMinutes < RESERVATION_DURATION_MINUTES;
-    };
+    // Check Overlap Helper (now imported from constants)
 
     const startEditReservation = (res: Reservation) => {
         setEditResId(res.id);
@@ -140,15 +135,20 @@ const TableDetails: React.FC<TableDetailsProps> = ({
         const hasConflict = existingRes.some(r => {
             // Skip the reservation being edited
             if (editResId && r.id === editResId) return false;
-            // Check same date and overlap
-            return r.date === resDate && checkOverlap(r.time, resTime);
+            // Check same date and overlap using dynamic turn times based on guests
+            return r.date === resDate && checkOverlap(r.time, r.guests, resTime, resGuests, table?.turnTimeConfig || DEFAULT_TURN_TIME_CONFIG);
         });
 
         if (hasConflict) {
-            setFormError('Conflitto di orario: ci devono essere almeno 2 ore di distanza tra le prenotazioni.');
+            setForceConflictWarning(true);
             return;
         }
 
+        proceedWithSave();
+    };
+
+    const proceedWithSave = () => {
+        if (!table) return;
 
         if (editResId) {
             // Update existing
@@ -192,6 +192,7 @@ const TableDetails: React.FC<TableDetailsProps> = ({
         setResTime('');
         setResNotes('');
         setFormError(null);
+        setForceConflictWarning(false);
     };
 
     const cancelReservationForm = () => {
@@ -390,7 +391,7 @@ const TableDetails: React.FC<TableDetailsProps> = ({
                                     onClick={() => setResStatus('PENDING')}
                                     className={`flex-1 py-1 text-xs font-bold rounded uppercase transition-colors ${resStatus === 'PENDING' ? 'bg-orange-500 text-white' : 'text-gray-500'}`}
                                 >
-                                    In Attesa
+                                    Da Confermare
                                 </button>
                             </div>
 
@@ -456,7 +457,7 @@ const TableDetails: React.FC<TableDetailsProps> = ({
                                                 <div className="flex-1">
                                                     <div className={`font-bold text-lg leading-tight flex items-center gap-2 ${res.status === 'PENDING' ? 'text-orange-400' : (isArrived ? 'text-aura-secondary' : 'text-white')}`}>
                                                         {res.firstName} {res.lastName}
-                                                        {res.status === 'PENDING' && <span className="text-[9px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded border border-orange-500/30 uppercase">In Attesa</span>}
+                                                        {res.status === 'PENDING' && <span className="text-[9px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded border border-orange-500/30 uppercase">Da Confermare</span>}
                                                         {isArrived && <span className="text-[9px] bg-aura-secondary/20 text-aura-secondary px-1.5 py-0.5 rounded border border-aura-secondary/30 uppercase animate-pulse">Live</span>}
 
                                                         {/* Actions */}
@@ -557,7 +558,7 @@ const TableDetails: React.FC<TableDetailsProps> = ({
                                                             const hasConflict = t.reservations?.some(r =>
                                                                 r.date === selectedDate &&
                                                                 r.status !== 'COMPLETED' &&
-                                                                checkOverlap(r.time, res.time)
+                                                                checkOverlap(r.time, r.guests, res.time, res.guests, t.turnTimeConfig || DEFAULT_TURN_TIME_CONFIG)
                                                             );
 
                                                             return t.status === 'FREE' && !hasConflict;
@@ -735,7 +736,38 @@ const TableDetails: React.FC<TableDetailsProps> = ({
                     </div>
                 </div>
             </div>
-
+            {/* FORCE CONFLICT CONFIRMATION MODAL */}
+            {forceConflictWarning && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-aura-black/80 backdrop-blur-sm">
+                    <div className="bg-aura-card border border-aura-border rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <div className="flex flex-col items-center text-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-aura-red/20 flex items-center justify-center text-aura-red">
+                                <AlertTriangle size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-white mb-2">Conflitto Orario</h3>
+                                <p className="text-sm text-gray-400">
+                                    Attenzione: il tavolo è già occupato per questo orario o permanenza prevista ({getTurnTime(resGuests, table?.turnTimeConfig || DEFAULT_TURN_TIME_CONFIG)} min). Vuoi forzare l'inserimento?
+                                </p>
+                            </div>
+                            <div className="flex gap-3 w-full mt-2">
+                                <button
+                                    onClick={() => setForceConflictWarning(false)}
+                                    className="flex-1 py-3 rounded-xl font-bold bg-aura-card border border-aura-border text-gray-400 hover:text-white hover:border-white/50 transition-colors cursor-pointer"
+                                >
+                                    Annulla
+                                </button>
+                                <button
+                                    onClick={proceedWithSave}
+                                    className="flex-1 py-3 rounded-xl font-bold bg-aura-red text-white hover:bg-red-500 transition-colors cursor-pointer"
+                                >
+                                    Forza
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 };

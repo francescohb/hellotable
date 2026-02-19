@@ -8,6 +8,12 @@ export interface Position {
     y: number;
 }
 
+export interface TurnTimeConfig {
+    small: number;  // 1-2 pax
+    medium: number; // 3-5 pax
+    large: number;  // 6+ pax
+}
+
 export type ReservationStatus = 'CONFIRMED' | 'PENDING' | 'ARRIVED' | 'COMPLETED';
 
 export interface Reservation {
@@ -48,6 +54,9 @@ export interface TableData {
 
     // Reservation Data
     reservations: Reservation[];
+
+    // Per-table Turn Time settings
+    turnTimeConfig?: TurnTimeConfig;
 }
 
 export interface DragEndEvent {

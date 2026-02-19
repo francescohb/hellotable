@@ -25,14 +25,14 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
     const [tables, setTables] = useState<TableData[]>(initialTables);
     const [floors, setFloors] = useState<string[]>(initialFloors);
     const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
-    
+
     // Stats Modal State
     const [isStatsOpen, setIsStatsOpen] = useState(false);
     const [statsTab, setStatsTab] = useState<'floor' | 'all'>('floor');
-    
+
     // CONTEXT MENU STATE (Table)
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, tableId: string } | null>(null);
-    
+
     // CONTEXT MENU STATE (Floor)
     const [floorMenu, setFloorMenu] = useState<{ x: number, y: number, canvasX: number, canvasY: number } | null>(null);
 
@@ -81,15 +81,15 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
     const fitContent = useCallback(() => {
         if (!containerRef.current || currentFloorTables.length === 0) return;
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        
+
         currentFloorTables.forEach(t => {
             if (t.position.x < minX) minX = t.position.x;
             if (t.position.y < minY) minY = t.position.y;
-            
+
             // Calculate dimensions based on table size (approx 150-240px)
             // Using a tighter bounding box to minimize empty space
-            const boundSize = t.isExtended ? 240 : 150; 
-            
+            const boundSize = t.isExtended ? 240 : 150;
+
             if (t.position.x + boundSize > maxX) maxX = t.position.x + boundSize;
             if (t.position.y + 150 > maxY) maxY = t.position.y + 150;
         });
@@ -98,26 +98,26 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
         const padding = 80;
         const contentWidth = (maxX - minX) + (padding * 2);
         const contentHeight = (maxY - minY) + (padding * 2);
-        
+
         const contentCenterX = (minX + maxX) / 2;
         const contentCenterY = (minY + maxY) / 2;
-        
+
         const containerWidth = containerRef.current.clientWidth;
         const containerHeight = containerRef.current.clientHeight;
-        
+
         const scaleX = containerWidth / contentWidth;
         const scaleY = containerHeight / contentHeight;
-        
+
         // Exact fit scale
         let targetScale = Math.min(scaleX, scaleY);
-        
+
         // Clamp
         targetScale = Math.min(Math.max(targetScale, MIN_ZOOM), MAX_ZOOM);
-        
+
         const newX = (containerWidth / 2) - (contentCenterX * targetScale);
         // Shift Y to lower the grid. Requested: -30px relative to center (reset).
         const newY = ((containerHeight / 2) - (contentCenterY * targetScale) - 30);
-        
+
         setZoomLevel(targetScale);
         setViewPos({ x: newX, y: newY });
     }, [currentFloorTables]);
@@ -153,7 +153,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
     const handleTableContextMenu = (e: React.MouseEvent, tableId: string) => {
         // Prevent opening if dragging
         if (draggedTableId) return;
-        
+
         setContextMenu({
             x: e.clientX,
             y: e.clientY,
@@ -170,7 +170,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
 
         if (!containerRef.current) return;
         const rect = containerRef.current.getBoundingClientRect();
-        
+
         // Calculate world coordinates for potential new table placement
         const canvasX = (e.clientX - rect.left - viewPos.x) / zoomLevel;
         const canvasY = (e.clientY - rect.top - viewPos.y) / zoomLevel;
@@ -187,9 +187,9 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
 
     const handleQuickAddTable = () => {
         if (!floorMenu) return;
-        
+
         const newId = `t-${Date.now()}`;
-        
+
         // --- SMART NAMING: EXTRA 1, 2, 3... ---
         const extraTables = tables.filter(t => t.name.startsWith("Extra"));
         const existingNumbers = extraTables
@@ -202,10 +202,10 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
         const TABLE_SIZE = 150; // Updated size (2.5 squares)
         const BUFFER = 60; // Updated buffer
         const TOTAL_SPACE = TABLE_SIZE + BUFFER;
-        
+
         let safeX = floorMenu.canvasX - (TABLE_SIZE / 2); // Center on click
         let safeY = floorMenu.canvasY - (TABLE_SIZE / 2);
-        
+
         let collision = true;
         let attempts = 0;
         let radius = 0;
@@ -217,7 +217,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                 // Approximate bounding box check
                 const tWidth = t.isExtended ? 240 : 150;
                 const tHeight = 150;
-                
+
                 // Check if rects overlap with buffer
                 return (
                     safeX < t.position.x + tWidth + BUFFER &&
@@ -247,7 +247,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
             id: newId,
             name: newName,
             floor: activeFloor,
-            position: { x: safeX, y: safeY }, 
+            position: { x: safeX, y: safeY },
             shape: 'square',
             capacity: 2,
             originalCapacity: 2,
@@ -257,26 +257,26 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
             reservations: [],
             isTemporary: true // MARK AS TEMPORARY
         }]);
-        
+
         setFloorMenu(null);
         setNotification(`Tavolo ${newName} aggiunto`);
     };
 
     const handleResetLayout = () => {
         if (!floorMenu) return;
-        
+
         // Use the initialTables prop as the source of truth for default positions
         const originalMap = new Map(initialTables.map(t => [t.id, t.position]));
 
         const updatedTables = tables.map(t => {
             if (t.floor !== activeFloor) return t;
-            
+
             // Restore original position if it exists
             const originalPos = originalMap.get(t.id);
             if (originalPos) {
                 return { ...t, position: { ...originalPos } };
             }
-            
+
             // If it's a temporary table or not in original set, keep it where it is
             return t;
         });
@@ -284,7 +284,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
         setTables(updatedTables);
         setFloorMenu(null);
         setNotification("Layout ripristinato");
-        
+
         // Fit content after reset
         setTimeout(() => fitContentRef.current(), 100);
     };
@@ -308,7 +308,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
             } else {
                 // Smart Occupy logic
                 const todaysRes = table.reservations.filter(r => r.date === selectedDate && r.status !== 'ARRIVED' && r.status !== 'COMPLETED');
-                const resToCheckIn = todaysRes.sort((a,b) => a.time.localeCompare(b.time))[0];
+                const resToCheckIn = todaysRes.sort((a, b) => a.time.localeCompare(b.time))[0];
 
                 if (resToCheckIn) {
                     const updatedRes = { ...resToCheckIn, status: 'ARRIVED' as const };
@@ -346,19 +346,19 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
         const rect = container.getBoundingClientRect();
         const centerX = rect.width / 2;
         const centerY = rect.height / 2;
-        
+
         const newZoom = Math.min(Math.max(zoomLevel + delta, MIN_ZOOM), MAX_ZOOM);
         const scaleFactor = newZoom / zoomLevel;
-        
+
         const newX = centerX - (centerX - viewPos.x) * scaleFactor;
         const newY = centerY - (centerY - viewPos.y) * scaleFactor;
-        
+
         setZoomLevel(newZoom);
         setViewPos({ x: newX, y: newY });
     };
 
     const onWheel = useCallback((e: WheelEvent) => {
-        if (selectedTableIdRef.current || isStatsOpenRef.current) return; // Disable zoom if stats open
+        if (selectedTableIdRef.current || isStatsOpenRef.current || pendingMerge) return; // Disable zoom if stats open OR pending merge
         e.preventDefault();
         const { zoom: oldZoom, x: oldX, y: oldY } = transformRef.current;
         if (e.ctrlKey) {
@@ -390,7 +390,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
     // --- COLLISION & DRAG LOGIC ---
     // Updated dimensions to match TableNode visual update (2.5 squares = 150px min)
     const getTableDimensions = (shape: TableShape, extended: boolean) => {
-        if (extended) return { w: 240, h: 150 }; 
+        if (extended) return { w: 240, h: 150 };
         switch (shape) {
             case 'circle': return { w: 150, h: 150 };
             case 'square': return { w: 150, h: 150 };
@@ -440,7 +440,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
         for (const t of otherTables) {
             const tDim = getTableDimensions(t.shape, t.isExtended);
             const dist = getEdgeDistance(currentPos, activeDim, t.position, tDim);
-            
+
             if (dist < 30) {
                 // If either table is occupied, prioritize error detection
                 if (activeTable.status === 'OCCUPIED' || t.status === 'OCCUPIED') {
@@ -465,7 +465,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
     // --- DRAG END HANDLER ---
     const handleTableDragEnd = useCallback((id: string, newPos: Position) => {
         setDraggedTableId(null);
-        setMergeCandidateId(null); 
+        setMergeCandidateId(null);
         setMergeErrorId(null); // Clear error highlight
 
         const activeTable = tables.find(t => t.id === id);
@@ -473,7 +473,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
 
         const activeDim = getTableDimensions(activeTable.shape, activeTable.isExtended);
         const otherTables = tables.filter(t => t.id !== id && t.floor === activeFloor);
-        
+
         // Re-check proximity
         const targetMergeTable = otherTables.find(t => {
             const tDim = getTableDimensions(t.shape, t.isExtended);
@@ -525,17 +525,17 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
     const handleConfirmMerge = () => {
         if (!pendingMerge) return;
         const { sourceId, targetId, originalPosition } = pendingMerge;
-        
+
         const targetTable = tables.find(t => t.id === targetId);
         const sourceTable = tables.find(t => t.id === sourceId);
-        
+
         if (targetTable && sourceTable) {
-             const sourceRecord = { ...sourceTable, position: originalPosition };
-             const subTables = [
+            const sourceRecord = { ...sourceTable, position: originalPosition };
+            const subTables = [
                 ...(targetTable.subTables.length > 0 ? targetTable.subTables : [targetTable]),
                 ...(sourceTable.subTables.length > 0 ? sourceTable.subTables : [sourceRecord])
             ];
-            
+
             // Calculate new position (Centroid of both)
             const newX = (targetTable.position.x + sourceTable.position.x) / 2;
             const newY = (targetTable.position.y + sourceTable.position.y) / 2;
@@ -558,12 +558,12 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
             // Remove source, Replace target with Merged
             // NO repelNeighbors call here, allowing overlap if necessary per user request
             const newTables = tables.filter(t => t.id !== sourceId).map(t => t.id === targetId ? mergedTable : t);
-            
+
             setTables(newTables);
             setSelectedTableId(mergedTable.id);
             setNotification(`Tavoli uniti: ${sourceTable.name} + ${targetTable.name}`);
         }
-        
+
         setPendingMerge(null);
     };
 
@@ -643,15 +643,15 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
             // Wait, the logic here was a bit simplified in previous prompt.
             // Correct update logic:
             if (exists) return { ...t, reservations: newReservations };
-            
+
             // If we are strictly updating an existing reservation in place:
-            return t; 
+            return t;
         }));
-        
+
         // If we need to move it or add it if not found (handled loosely before)
         // For the purpose of the context menu "check-in", we assume the reservation is already on the table.
         // So the above map is sufficient for check-in status update.
-        
+
         setNotification(`Prenotazione aggiornata`);
     };
 
@@ -757,15 +757,15 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
         const occupiedTables = targetTables.filter(t => t.status === 'OCCUPIED');
         const reservedTables = targetTables.filter(t => t.status === 'FREE' && t.reservations?.some(r => r.date === selectedDate));
         const freeTables = targetTables.filter(t => t.status === 'FREE' && !t.reservations?.some(r => r.date === selectedDate));
-        
+
         const occupiedSeats = occupiedTables.reduce((acc, t) => acc + t.capacity, 0);
         const reservedSeats = reservedTables.reduce((acc, t) => acc + t.capacity, 0);
-        
+
         // Collect detailed pending reservations for display
-        const pendingList = targetTables.flatMap(t => 
+        const pendingList = targetTables.flatMap(t =>
             (t.reservations || [])
-            .filter(r => r.date === selectedDate && r.status !== 'ARRIVED' && r.status !== 'COMPLETED')
-            .map(r => ({ ...r, tableName: t.name }))
+                .filter(r => r.date === selectedDate && r.status !== 'ARRIVED' && r.status !== 'COMPLETED')
+                .map(r => ({ ...r, tableName: t.name }))
         ).sort((a, b) => a.time.localeCompare(b.time));
 
         return {
@@ -809,7 +809,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
         if (s && t) {
             // Find world space center
             const worldX = (s.position.x + t.position.x) / 2 + 75; // 75 is half width
-            const worldY = Math.min(s.position.y, t.position.y) - 60; // Float above
+            const worldY = (s.position.y + t.position.y) / 2 + 75; // True center of tables
 
             // Project to screen space
             mergeModalPosition = {
@@ -877,21 +877,21 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                 </div>
                             </div>
 
-                            <div 
-                                ref={setContainerRef} 
-                                className="relative flex-1 bg-aura-bg overflow-hidden cursor-grab active:cursor-grabbing transition-colors duration-300" 
+                            <div
+                                ref={setContainerRef}
+                                className="relative flex-1 bg-aura-bg overflow-hidden cursor-grab active:cursor-grabbing transition-colors duration-300"
                                 onClick={() => { setSelectedTableId(null); setContextMenu(null); setIsStatsOpen(false); setFloorMenu(null); }}
                                 onContextMenu={handleFloorContextMenu}
                             >
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden select-none z-0">
                                     <h1 className="text-[10rem] font-black text-white/[0.03] tracking-widest whitespace-nowrap uppercase">{activeFloor}</h1>
                                 </div>
-                                <motion.div 
-                                    className="absolute w-[4000px] h-[4000px] origin-top-left z-10" 
-                                    drag={!isStatsOpen && !selectedTableId} // Disable drag when stats or details are open
-                                    dragMomentum={false} 
-                                    animate={{ x: viewPos.x, y: viewPos.y, scale: zoomLevel }} 
-                                    transition={{ type: 'tween', duration: 0 }} 
+                                <motion.div
+                                    className="absolute w-[4000px] h-[4000px] origin-top-left z-10"
+                                    drag={!isStatsOpen && !selectedTableId && !pendingMerge} // Disable drag when stats or details are open OR pendingMerge
+                                    dragMomentum={false}
+                                    animate={{ x: viewPos.x, y: viewPos.y, scale: zoomLevel }}
+                                    transition={{ type: 'tween', duration: 0 }}
                                     onDragEnd={(_, info) => { setViewPos({ x: viewPos.x + info.offset.x, y: viewPos.y + info.offset.y }); }}
                                 >
                                     <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: `linear-gradient(to right, #1e3d2b 1px, transparent 1px), linear-gradient(to bottom, #1e3d2b 1px, transparent 1px)`, backgroundSize: '60px 60px', opacity: 0.3 }} />
@@ -917,7 +917,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                 </motion.div>
 
                                 <div className="absolute top-6 left-6 z-30 pointer-events-auto">
-                                    <button 
+                                    <button
                                         onClick={(e) => { e.stopPropagation(); setIsStatsOpen(true); setSelectedTableId(null); setFloorMenu(null); }}
                                         onContextMenu={(e) => e.stopPropagation()} // PREVENT CONTEXT MENU
                                         className="bg-aura-card border border-aura-border hover:border-aura-primary/50 text-white p-3 rounded-xl shadow-lg backdrop-blur-md transition-all group"
@@ -936,8 +936,8 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                                 onClick={() => setActiveFloor(floor)}
                                                 className={`
                                                     px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all flex items-center gap-2 relative
-                                                    ${activeFloor === floor 
-                                                        ? 'bg-aura-primary text-black shadow-lg shadow-aura-primary/20' 
+                                                    ${activeFloor === floor
+                                                        ? 'bg-aura-primary text-black shadow-lg shadow-aura-primary/20'
                                                         : 'text-gray-400 hover:text-white hover:bg-white/5'
                                                     }
                                                 `}
@@ -997,46 +997,58 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                 {/* OPTIMIZED MERGE CONFIRMATION MODAL */}
                                 <AnimatePresence>
                                     {pendingMerge && mergeModalPosition.x !== 0 && (
-                                        <motion.div 
-                                            initial={{ opacity: 0, scale: 0.8, y: 10 }} 
-                                            animate={{ opacity: 1, scale: 1, y: 0 }} 
-                                            exit={{ opacity: 0, scale: 0.8, y: 10 }}
-                                            style={{ left: mergeModalPosition.x, top: mergeModalPosition.y }}
-                                            className="fixed z-[100] -translate-x-1/2 pointer-events-auto"
-                                        >
-                                            <div className="bg-aura-black/90 backdrop-blur-lg border border-aura-gold/50 rounded-full py-2 px-4 shadow-2xl flex items-center gap-4 min-w-[240px]">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-8 h-8 rounded-full bg-aura-gold/20 flex items-center justify-center text-aura-gold">
-                                                        <Merge size={16} />
+                                        <>
+                                            {/* OVERLAY for focus */}
+                                            <motion.div
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                exit={{ opacity: 0 }}
+                                                className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-[90] pointer-events-auto"
+                                                // Block all interactions on overlay
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+
+                                            <motion.div
+                                                initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                exit={{ opacity: 0, scale: 0.8, y: 10 }}
+                                                style={{ left: mergeModalPosition.x, top: mergeModalPosition.y }}
+                                                className="fixed z-[100] -translate-x-1/2 -translate-y-1/2 pointer-events-auto"
+                                            >
+                                                <div className="bg-aura-black/90 backdrop-blur-lg border border-aura-gold/50 rounded-full py-2 px-4 shadow-2xl flex items-center gap-4 min-w-[240px]">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-8 h-8 rounded-full bg-aura-gold/20 flex items-center justify-center text-aura-gold">
+                                                            <Merge size={16} />
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Unione</span>
+                                                            <span className="text-sm font-bold text-white leading-none">
+                                                                {tables.find(t => t.id === pendingMerge.sourceId)?.name} <span className="text-aura-gold">+</span> {tables.find(t => t.id === pendingMerge.targetId)?.name}
+                                                            </span>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Unione</span>
-                                                        <span className="text-sm font-bold text-white leading-none">
-                                                            {tables.find(t=>t.id===pendingMerge.sourceId)?.name} <span className="text-aura-gold">+</span> {tables.find(t=>t.id===pendingMerge.targetId)?.name}
-                                                        </span>
+                                                    <div className="h-8 w-px bg-white/10 mx-1"></div>
+                                                    <div className="flex items-center gap-2">
+                                                        <button onClick={handleCancelMerge} className="w-8 h-8 rounded-full bg-white/10 text-gray-400 flex items-center justify-center hover:bg-white/20 hover:text-white transition-colors">
+                                                            <X size={16} strokeWidth={3} />
+                                                        </button>
+                                                        <button onClick={handleConfirmMerge} className="w-8 h-8 rounded-full bg-aura-primary text-black flex items-center justify-center hover:bg-white transition-colors shadow-lg">
+                                                            <Check size={16} strokeWidth={3} />
+                                                        </button>
                                                     </div>
                                                 </div>
-                                                <div className="h-8 w-px bg-white/10 mx-1"></div>
-                                                <div className="flex items-center gap-2">
-                                                    <button onClick={handleConfirmMerge} className="w-8 h-8 rounded-full bg-aura-gold text-black flex items-center justify-center hover:bg-white transition-colors shadow-lg">
-                                                        <Check size={16} strokeWidth={3} />
-                                                    </button>
-                                                    <button onClick={handleCancelMerge} className="w-8 h-8 rounded-full bg-white/10 text-gray-400 flex items-center justify-center hover:bg-white/20 hover:text-white transition-colors">
-                                                        <X size={16} strokeWidth={3} />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </motion.div>
+                                            </motion.div>
+                                        </>
                                     )}
                                 </AnimatePresence>
 
                                 {/* TABLE CONTEXT MENU */}
                                 <AnimatePresence>
                                     {contextMenu && (
-                                        <ContextMenu 
-                                            x={contextMenu.x} 
-                                            y={contextMenu.y} 
-                                            table={tables.find(t => t.id === contextMenu.tableId)!} 
+                                        <ContextMenu
+                                            x={contextMenu.x}
+                                            y={contextMenu.y}
+                                            table={tables.find(t => t.id === contextMenu.tableId)!}
                                             onClose={() => setContextMenu(null)}
                                             onAction={handleContextMenuAction}
                                             hasPendingRes={tables.find(t => t.id === contextMenu.tableId)?.reservations.some(r => r.date === selectedDate && r.status !== 'ARRIVED' && r.status !== 'COMPLETED') ?? false}
@@ -1074,14 +1086,14 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                             <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
                                                 {/* Tabs */}
                                                 <div className="flex gap-1 mb-6 bg-aura-black p-1 rounded-xl border border-aura-border">
-                                                    <button 
-                                                        onClick={() => setStatsTab('floor')} 
+                                                    <button
+                                                        onClick={() => setStatsTab('floor')}
                                                         className={`flex-1 py-2 text-xs font-bold uppercase rounded-lg transition-all ${statsTab === 'floor' ? 'bg-aura-card border border-aura-border text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
                                                     >
                                                         {activeFloor}
                                                     </button>
-                                                    <button 
-                                                        onClick={() => setStatsTab('all')} 
+                                                    <button
+                                                        onClick={() => setStatsTab('all')}
                                                         className={`flex-1 py-2 text-xs font-bold uppercase rounded-lg transition-all ${statsTab === 'all' ? 'bg-aura-card border border-aura-border text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
                                                     >
                                                         Globale
@@ -1198,19 +1210,19 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                 <AnimatePresence mode='wait'>
                                     {selectedTableId && (
                                         <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", bounce: 0, duration: 0.4 }} className="absolute top-0 right-0 h-full w-[420px] z-[70] shadow-[-20px_0_50px_-10px_rgba(0,0,0,0.5)] border-l border-aura-border bg-aura-bg pointer-events-auto">
-                                            <TableDetails 
-                                                table={selectedTable} 
-                                                selectedDate={selectedDate} 
-                                                currentTime={currentTime} 
-                                                onUpdateStatus={updateTableStatus} 
-                                                onModifyCapacity={modifyCapacity} 
-                                                onRenameTable={renameTable} 
-                                                onSplitTable={splitTable} 
-                                                onResetTable={resetTable} 
-                                                onDeleteTable={deleteTable} 
-                                                onAddReservation={addReservation} 
-                                                onRemoveReservation={removeReservation} 
-                                                onUpdateReservation={updateReservation} 
+                                            <TableDetails
+                                                table={selectedTable}
+                                                selectedDate={selectedDate}
+                                                currentTime={currentTime}
+                                                onUpdateStatus={updateTableStatus}
+                                                onModifyCapacity={modifyCapacity}
+                                                onRenameTable={renameTable}
+                                                onSplitTable={splitTable}
+                                                onResetTable={resetTable}
+                                                onDeleteTable={deleteTable}
+                                                onAddReservation={addReservation}
+                                                onRemoveReservation={removeReservation}
+                                                onUpdateReservation={updateReservation}
                                                 onClose={() => setSelectedTableId(null)}
                                                 // Handle making a temporary table permanent
                                                 onMakePermanent={(id) => {
@@ -1227,7 +1239,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                 </AnimatePresence>
 
                 {/* NEW RESERVATION FAB (Global) */}
-                <motion.button 
+                <motion.button
                     initial="idle"
                     whileHover="hover"
                     onClick={() => { setPreselectNewReservation(true); setCurrentView('reservations'); }}
@@ -1242,7 +1254,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                     <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
                         <Plus size={28} />
                     </div>
-                    <motion.span 
+                    <motion.span
                         className="font-bold whitespace-nowrap overflow-hidden pr-6"
                         variants={{
                             idle: { opacity: 0, x: -10 },

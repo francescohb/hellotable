@@ -14,7 +14,7 @@ export interface TurnTimeConfig {
     large: number;  // 6+ pax
 }
 
-export type ReservationStatus = 'CONFIRMED' | 'PENDING' | 'ARRIVED' | 'COMPLETED';
+export type ReservationStatus = 'CONFIRMED' | 'PENDING' | 'ARRIVED' | 'COMPLETED' | 'CANCELLED';
 
 export interface Reservation {
     id: string;

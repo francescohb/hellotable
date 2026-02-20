@@ -22,6 +22,10 @@ interface FloorManagerProps {
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 1.5;
 
+const deduplicateReservations = (reservations: Reservation[]): Reservation[] => {
+    return Array.from(new Map(reservations.map(r => [r.id, r])).values());
+};
+
 const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, initialTables, floors: initialFloors, initialTime }) => {
     const [tables, setTables] = useState<TableData[]>(initialTables);
     const [floors, setFloors] = useState<string[]>(initialFloors);
@@ -559,14 +563,14 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                 shape: 'rectangle', // Fixed shape for merged tables
                 capacity: combinedCapacity,
                 originalCapacity: combinedOriginalCapacity,
-                subTables: [...(targetTable.subTables.length > 0 ? targetTable.subTables : [targetTable]), ...(sourceTable.subTables.length > 0 ? sourceTable.subTables : [sourceTable])],
+                subTables: [targetTable, sourceTable],
                 isExtended: true,
                 position: { x: newX, y: newY },
                 status: sourceTable.status === 'OCCUPIED' ? 'OCCUPIED' : targetTable.status,
-                reservations: [
+                reservations: deduplicateReservations([
                     ...targetTable.reservations.map(r => ({ ...r, tableName: r.tableName || targetTable.name })),
                     ...sourceTable.reservations.map(r => ({ ...r, tableName: r.tableName || sourceTable.name }))
-                ],
+                ]),
                 isTemporary: targetTable.isTemporary || sourceTable.isTemporary // Inherit temporary if either was
             };
 
@@ -597,8 +601,9 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
         const combinedOriginalCapacity = targetTables.reduce((sum, t) => sum + t.originalCapacity, 0);
         const newName = targetTables.map(t => t.name).join('+');
 
-        const allSubTables = targetTables.flatMap(t => t.subTables.length > 0 ? t.subTables : [t]);
-        const allReservations = targetTables.flatMap(t => t.reservations.map(r => ({ ...r, tableName: r.tableName || t.name })));
+        const allReservations = deduplicateReservations(
+            targetTables.flatMap(t => t.reservations.map(r => ({ ...r, tableName: r.tableName || t.name })))
+        );
         const isTemporary = targetTables.some(t => t.isTemporary);
 
         const mergedTable: TableData = {
@@ -608,7 +613,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
             shape: 'rectangle', // Fixed shape for merged tables
             capacity: combinedCapacity,
             originalCapacity: combinedOriginalCapacity,
-            subTables: allSubTables,
+            subTables: targetTables,
             isExtended: true,
             position: { x: avgX, y: avgY },
             status: 'FREE', // Manual merge only allows FREE tables
@@ -723,18 +728,43 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                         setNotification("Tavoli separati automaticamente");
 
                         // Restore sub-tables
+                        const reservationsToDistribute = deduplicateReservations(t.reservations || []);
+                        const subTableRes: Record<string, Reservation[]> = {};
+
+                        t.subTables.forEach(sub => {
+                            subTableRes[sub.id] = [];
+                        });
+
+                        reservationsToDistribute.forEach(res => {
+                            const exactMatch = t.subTables.find(sub => sub.name === res.tableName);
+                            if (exactMatch) {
+                                subTableRes[exactMatch.id].push(res);
+                                return;
+                            }
+
+                            if (res.tableName) {
+                                const namesInRes = res.tableName.split('+').map(n => n.trim());
+                                const partialMatch = t.subTables.find(sub => {
+                                    const subNames = sub.name.split('+').map(n => n.trim());
+                                    return subNames.some(sn => namesInRes.includes(sn)) || namesInRes.some(rn => subNames.includes(rn));
+                                });
+                                if (partialMatch) {
+                                    subTableRes[partialMatch.id].push(res);
+                                    return;
+                                }
+                            }
+
+                            if (t.subTables.length > 0) {
+                                subTableRes[t.subTables[0].id].push(res);
+                            }
+                        });
+
                         const restored = t.subTables.map(sub => {
-                            // Find reservations for this sub-table from the merged table
-                            const specificRes = activeReservations.filter(r => r.tableName === sub.name);
-
-                            // Combine with original reservations (from ref or snapshot)
-                            const originalRes = reservationsRef.current[sub.id] || [];
-
                             return {
                                 ...sub,
                                 status: 'FREE' as TableStatus,
                                 position: sub.position,
-                                reservations: [...originalRes, ...specificRes]
+                                reservations: subTableRes[sub.id] || []
                             };
                         });
 
@@ -833,7 +863,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
             status: 'FREE',
             isExtended: true,
             subTables: allSubTables,
-            reservations: [...allReservations, reservation]
+            reservations: deduplicateReservations([...allReservations, reservation])
         };
         const newTables = [
             ...tables.filter(t => !tableIds.includes(t.id)),
@@ -847,9 +877,45 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
     const splitTable = (id: string) => {
         const tableToSplit = tables.find(t => t.id === id);
         if (!tableToSplit || tableToSplit.subTables.length === 0) return;
+
+        const reservationsToDistribute = deduplicateReservations(tableToSplit.reservations || []);
+        const subTableRes: Record<string, Reservation[]> = {};
+
+        tableToSplit.subTables.forEach(sub => {
+            subTableRes[sub.id] = [];
+        });
+
+        reservationsToDistribute.forEach(res => {
+            const exactMatch = tableToSplit.subTables.find(sub => sub.name === res.tableName);
+            if (exactMatch) {
+                subTableRes[exactMatch.id].push(res);
+                return;
+            }
+
+            if (res.tableName) {
+                const namesInRes = res.tableName.split('+').map(n => n.trim());
+                const partialMatch = tableToSplit.subTables.find(sub => {
+                    const subNames = sub.name.split('+').map(n => n.trim());
+                    return subNames.some(sn => namesInRes.includes(sn)) || namesInRes.some(rn => subNames.includes(rn));
+                });
+                if (partialMatch) {
+                    subTableRes[partialMatch.id].push(res);
+                    return;
+                }
+            }
+
+            if (tableToSplit.subTables.length > 0) {
+                subTableRes[tableToSplit.subTables[0].id].push(res);
+            }
+        });
+
         const restoredTables = tableToSplit.subTables.map((sub) => ({
-            ...sub, position: sub.position, status: 'FREE' as TableStatus, reservations: reservationsRef.current[sub.id] || []
+            ...sub,
+            position: sub.position,
+            status: 'FREE' as TableStatus,
+            reservations: subTableRes[sub.id] || []
         }));
+
         setTables(prev => [...prev.filter(t => t.id !== id), ...restoredTables]);
         setSelectedTableId(null);
         setNotification("Tavoli divisi");

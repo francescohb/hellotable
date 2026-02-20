@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Search, Users, Clock, ArrowLeft, Plus, Check, X, Filter, ChevronRight, ChevronLeft, CalendarCheck, Utensils, Edit2, Trash2, Map, Grid, Layers, Merge, AlertTriangle } from 'lucide-react';
+import { Calendar, Search, Users, Clock, ArrowLeft, Plus, Check, X, Filter, ChevronRight, ChevronLeft, CalendarCheck, Utensils, Edit2, Trash2, Map, Grid, Layers, Merge, AlertTriangle, XCircle } from 'lucide-react';
 import { TableData, Reservation, ReservationStatus, TurnTimeConfig } from '../lib/types';
 import { checkOverlap, getTurnTime, DEFAULT_TURN_TIME_CONFIG } from '../lib/constants';
 import DatePicker from './DatePicker';
@@ -117,7 +117,7 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
         tables.forEach(t => {
             if (t.reservations) {
                 t.reservations.forEach(r => {
-                    if (r.date === selectedDate) {
+                    if (r.date === selectedDate && r.status !== 'CANCELLED') {
                         list.push({ tableId: t.id, tableName: t.name, floor: t.floor, res: r });
                     }
                 });
@@ -126,7 +126,7 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
 
         // Unassigned Reservations
         unassignedReservations.forEach(r => {
-            if (r.date === selectedDate) {
+            if (r.date === selectedDate && r.status !== 'CANCELLED') {
                 list.push({ tableId: null, tableName: 'Da Assegnare', floor: '-', res: r });
             }
         });
@@ -409,6 +409,11 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
         }
     };
 
+    const handleCancelReservation = (item: { tableId: string | null; tableName: string; floor: string; res: Reservation }) => {
+        const updatedRes = { ...item.res, status: 'CANCELLED' as const };
+        onUpdateReservation(item.tableId, updatedRes);
+    };
+
     const dateStr = new Date(selectedDate).toLocaleDateString('it-IT', { weekday: 'long', month: 'long', day: 'numeric' });
 
     return (
@@ -599,6 +604,20 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
                                                                 title="Modifica"
                                                             >
                                                                 <Edit2 size={18} />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleCancelReservation(item); }}
+                                                                className="p-2 text-gray-400 hover:text-orange-400 hover:bg-orange-400/10 rounded-lg transition-colors cursor-pointer"
+                                                                title="Annulla Prenotazione (Soft Delete)"
+                                                            >
+                                                                <XCircle size={18} />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleCancelReservation(item); }}
+                                                                className="p-2 text-gray-400 hover:text-orange-400 hover:bg-orange-400/10 rounded-lg transition-colors cursor-pointer"
+                                                                title="Annulla Prenotazione"
+                                                            >
+                                                                <XCircle size={18} />
                                                             </button>
                                                             <button
                                                                 onClick={(e) => {

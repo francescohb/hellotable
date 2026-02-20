@@ -107,15 +107,16 @@ const TableNode: React.FC<TableNodeProps> = ({
     }
   };
 
-  // Determine SVG border radius for the marching ants effect
+  // Determine SVG border radius for the marching ants effect (with external offset)
   const getSvgRadius = (shape: TableShape, extended: boolean) => {
-    if (extended) return 24;
+    const offset = 8;
+    if (extended) return 24 + offset;
     switch (shape) {
       case 'circle': return '50%';
-      case 'square': return 24;
-      case 'rectangle': return 24;
-      case 'oval': return 75;
-      default: return 24;
+      case 'square': return 24 + offset;
+      case 'rectangle': return 24 + offset;
+      case 'oval': return 75 + offset;
+      default: return 24 + offset;
     }
   };
 
@@ -222,11 +223,13 @@ const TableNode: React.FC<TableNodeProps> = ({
     >
       {/* MARCHING ANTS DASHED BORDER (SVG) - Green for Success, Red for Error/Warning, Yellow for Late */}
       {(isMergeCandidate || isMergeError || isUpcomingWarning || isLateReservationWarning) && (
-        <div className="absolute inset-[-1px] pointer-events-none z-0">
+        <div className="absolute inset-[-8px] pointer-events-none z-0">
           <svg width="100%" height="100%">
             <motion.rect
-              width="100%"
-              height="100%"
+              x="1.5"
+              y="1.5"
+              width="calc(100% - 3px)"
+              height="calc(100% - 3px)"
               rx={svgRadius}
               ry={svgRadius}
               fill="none"

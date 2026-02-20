@@ -71,12 +71,12 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, table, onClose, onActio
                 >
                     {isOccupied ? (
                         <>
-                            <CheckCircle size={16} /> <span>Libera Tavolo</span>
+                            <CheckCircle size={16} /> <span>Libera tavolo</span>
                         </>
                     ) : (
                         <>
                             <UserCheck size={16} />
-                            <span>Occupa Tavolo</span>
+                            <span>Occupa tavolo</span>
                         </>
                     )}
                 </button>
@@ -87,7 +87,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, table, onClose, onActio
                         onClick={() => onAction('make_permanent', table.id)}
                         className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-aura-secondary hover:bg-aura-secondary/10 rounded-lg transition-colors w-full text-left"
                     >
-                        <Anchor size={16} /> <span>Rendi Fisso</span>
+                        <Anchor size={16} /> <span>Rendi fisso</span>
                     </button>
                 )}
 
@@ -97,7 +97,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, table, onClose, onActio
                         onClick={() => onAction('split', table.id)}
                         className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors w-full text-left"
                     >
-                        <Divide size={16} /> <span>Dividi Tavoli</span>
+                        <Divide size={16} /> <span>Dividi tavoli</span>
                     </button>
                 )}
 
@@ -106,16 +106,10 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, table, onClose, onActio
                     onClick={() => onAction('add_reservation', table.id)}
                     className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors w-full text-left"
                 >
-                    <CalendarPlus size={16} /> <span>Aggiungi Prenotazione</span>
+                    <CalendarPlus size={16} /> <span>Aggiungi prenotazione</span>
                 </button>
 
-                {/* DELETE */}
-                <button
-                    onClick={() => onAction('delete', table.id)}
-                    className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors w-full text-left"
-                >
-                    <Trash2 size={16} /> <span>Elimina</span>
-                </button>
+
             </div>
         </motion.div>
     );

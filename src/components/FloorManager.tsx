@@ -1238,7 +1238,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                         }}
                                         onContextMenu={(e) => e.stopPropagation()}
                                         className={`p-3 rounded-xl shadow-lg backdrop-blur-md transition-all group border ${isManualMergeMode ? 'bg-aura-primary/20 border-aura-primary text-aura-primary' : 'bg-aura-card border-aura-border hover:border-aura-primary/50 text-gray-400 group-hover:text-aura-primary'}`}
-                                        title="Unisci Tavoli Manualmente"
+                                        title="Unisci tavoli manualmente"
                                     >
                                         <Merge size={24} className={isManualMergeMode ? 'text-aura-primary' : 'text-gray-400 group-hover:text-aura-primary transition-colors'} />
                                     </button>
@@ -1346,7 +1346,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                                     onClick={handleQuickAddTable}
                                                     className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-white/10 rounded-lg transition-colors w-full text-left"
                                                 >
-                                                    <MousePointer2 size={16} className="text-white" /> <span>Aggiungi Tavolo qui</span>
+                                                    <MousePointer2 size={16} className="text-white" /> <span>Aggiungi tavolo</span>
                                                 </button>
                                                 <button
                                                     onClick={(e) => {
@@ -1358,7 +1358,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                                     }}
                                                     className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-white/10 rounded-lg transition-colors w-full text-left"
                                                 >
-                                                    <Merge size={16} className="text-white" /> <span>Unisci Tavoli...</span>
+                                                    <Merge size={16} className="text-white" /> <span>Unisci tavoli</span>
                                                 </button>
                                                 <div className="h-px bg-aura-border/50 my-1 mx-1" />
                                                 <button
@@ -1374,49 +1374,47 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
 
                                 {/* OPTIMIZED MERGE CONFIRMATION MODAL */}
                                 <AnimatePresence>
-                                    {pendingMerge && mergeModalPosition.x !== 0 && (
-                                        <>
-                                            {/* OVERLAY for focus */}
+                                    {pendingMerge && (
+                                        <motion.div
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            className="fixed inset-0 z-[200] bg-aura-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
                                             <motion.div
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: 1 }}
-                                                exit={{ opacity: 0 }}
-                                                className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-[90] pointer-events-auto"
-                                                // Block all interactions on overlay
-                                                onClick={(e) => e.stopPropagation()}
-                                            />
-
-                                            <motion.div
-                                                initial={{ opacity: 0, scale: 0.8, y: 10 }}
-                                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                exit={{ opacity: 0, scale: 0.8, y: 10 }}
-                                                style={{ left: mergeModalPosition.x, top: mergeModalPosition.y }}
-                                                className="fixed z-[100] -translate-x-1/2 -translate-y-1/2 pointer-events-auto"
+                                                initial={{ scale: 0.95, opacity: 0 }}
+                                                animate={{ scale: 1, opacity: 1 }}
+                                                exit={{ scale: 0.95, opacity: 0 }}
+                                                className="bg-aura-card border border-aura-primary shadow-[0_0_30px_-5px_rgba(0,227,107,0.5)] rounded-2xl p-6 w-full max-w-sm pointer-events-auto"
                                             >
-                                                <div className="bg-aura-black/90 backdrop-blur-lg border border-aura-gold/50 rounded-full py-2 px-4 shadow-2xl flex items-center gap-4 min-w-[240px]">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-8 h-8 rounded-full bg-aura-gold/20 flex items-center justify-center text-aura-gold">
-                                                            <Merge size={16} />
-                                                        </div>
-                                                        <div className="flex flex-col">
-                                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Unione</span>
-                                                            <span className="text-sm font-bold text-white leading-none">
-                                                                {tables.find(t => t.id === pendingMerge.sourceId)?.name} <span className="text-aura-gold">+</span> {tables.find(t => t.id === pendingMerge.targetId)?.name}
-                                                            </span>
-                                                        </div>
+                                                <div className="flex flex-col items-center text-center gap-4">
+                                                    <div className="w-12 h-12 rounded-full bg-aura-primary/20 flex items-center justify-center text-aura-primary shadow-inner">
+                                                        <Merge size={24} />
                                                     </div>
-                                                    <div className="h-8 w-px bg-white/10 mx-1"></div>
-                                                    <div className="flex items-center gap-2">
-                                                        <button onClick={handleCancelMerge} className="w-8 h-8 rounded-full bg-white/10 text-gray-400 flex items-center justify-center hover:bg-white/20 hover:text-white transition-colors">
-                                                            <X size={16} strokeWidth={3} />
+                                                    <div>
+                                                        <h3 className="text-lg font-bold text-white mb-2">Unione Tavoli</h3>
+                                                        <p className="text-sm text-gray-400">
+                                                            Confermi l'unione tra <strong className="text-white">{tables.find(t => t.id === pendingMerge.sourceId)?.name}</strong> e <strong className="text-white">{tables.find(t => t.id === pendingMerge.targetId)?.name}</strong>?
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex flex-col gap-3 w-full mt-2">
+                                                        <button
+                                                            onClick={handleConfirmMerge}
+                                                            className="w-full py-3 rounded-xl font-bold bg-aura-primary text-black hover:bg-aura-secondary transition-colors uppercase cursor-pointer text-sm"
+                                                        >
+                                                            Conferma Unione
                                                         </button>
-                                                        <button onClick={handleConfirmMerge} className="w-8 h-8 rounded-full bg-aura-primary text-black flex items-center justify-center hover:bg-white transition-colors shadow-lg">
-                                                            <Check size={16} strokeWidth={3} />
+                                                        <button
+                                                            onClick={handleCancelMerge}
+                                                            className="w-full py-2 mt-1 text-gray-500 hover:text-white transition-colors text-sm font-medium uppercase cursor-pointer"
+                                                        >
+                                                            Annulla
                                                         </button>
                                                     </div>
                                                 </div>
                                             </motion.div>
-                                        </>
+                                        </motion.div>
                                     )}
                                 </AnimatePresence>
 

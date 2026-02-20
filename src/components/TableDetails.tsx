@@ -358,7 +358,6 @@ const TableDetails: React.FC<TableDetailsProps> = ({
 
                 {/* SECTION 1: AZIONE RAPIDA CONTESTUALE */}
                 <div className="p-6 border-b border-aura-border/30">
-                    <h3 className="text-xs font-bold text-gray-500 tracking-widest uppercase mb-4">Azione Rapida</h3>
 
                     {table.status === 'FREE' && (
                         <div className="relative">
@@ -524,8 +523,10 @@ const TableDetails: React.FC<TableDetailsProps> = ({
                                 <Calendar size={14} /> Prenotazioni ({new Date(selectedDate).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })})
                             </h3>
                             <button
-                                onClick={() => { setIsAddingReservation(true); setResGuests(table.capacity); setResDate(selectedDate); }}
-                                className="text-xs flex items-center gap-1 text-aura-primary hover:text-white transition-colors cursor-pointer"
+                                disabled
+                                /* onClick={() => { setIsAddingReservation(true); setResGuests(table.capacity); setResDate(selectedDate); }} */
+                                className="hidden"
+                                title="Aggiunta prenotazioni disabilitata"
                             >
                                 <Plus size={12} /> Aggiungi
                             </button>
@@ -703,8 +704,10 @@ const TableDetails: React.FC<TableDetailsProps> = ({
                             <div className="text-center py-4 border border-dashed border-aura-border rounded-xl">
                                 <p className="text-xs text-gray-600">Nessuna prenotazione per questa data</p>
                                 <button
-                                    onClick={() => { setIsAddingReservation(true); setResGuests(table.capacity); setResDate(selectedDate); }}
-                                    className="text-xs text-aura-primary hover:text-aura-secondary transition-colors mt-2 flex items-center gap-1 mx-auto cursor-pointer"
+                                    disabled
+                                    /* onClick={() => { setIsAddingReservation(true); setResGuests(table.capacity); setResDate(selectedDate); }} */
+                                    className="hidden"
+                                    title="Aggiunta prenotazioni disabilitata"
                                 >
                                     <CalendarPlus size={12} /> Aggiungi prenotazione
                                 </button>
@@ -715,106 +718,62 @@ const TableDetails: React.FC<TableDetailsProps> = ({
 
 
                 {/* STRUMENTI AVANZATI (SPLIT / RESET / PERMANENT) */}
-                <div className="p-6 border-t border-aura-border/30">
-                    <h3 className="text-xs font-bold text-gray-500 tracking-widest uppercase mb-4">Strumenti Avanzati</h3>
-                    <div className="space-y-3">
+                {(table.isTemporary && onMakePermanent) || table.subTables.length > 0 ? (
+                    <div className="p-6 border-t border-aura-border/30">
+                        <h3 className="text-xs font-bold text-gray-500 tracking-widest uppercase mb-4">Azioni</h3>
+                        <div className="space-y-3">
 
-                        {/* Tasto Rendi Fisso (Solo per tavoli temporanei) */}
-                        {table.isTemporary && onMakePermanent && (
-                            <div className="w-full relative overflow-hidden rounded-xl border border-aura-secondary/30 group hover:border-aura-secondary/50 transition-colors bg-aura-secondary/5 hover:bg-aura-secondary/10">
-                                <button
-                                    onClick={() => onMakePermanent(table.id)}
-                                    className="w-full flex items-center gap-3 p-4 text-left cursor-pointer"
-                                >
-                                    <div className="p-2 rounded-lg bg-aura-secondary/10 text-aura-secondary">
-                                        <Anchor size={18} />
-                                    </div>
-                                    <div>
-                                        <span className="block text-sm font-medium text-aura-secondary">Rendi Fisso</span>
-                                        <span className="block text-[10px] text-aura-secondary/70">Trasforma in tavolo permanente</span>
-                                    </div>
-                                </button>
-                            </div>
-                        )}
-
-                        {/* Tasto Dividi (Visibile solo se il tavolo è unito) */}
-                        {table.subTables.length > 0 && (
-                            <div className="w-full relative overflow-hidden rounded-xl border border-aura-border group hover:border-aura-gold/50 transition-colors bg-aura-card hover:bg-aura-gold/10">
-                                {confirmSplitTable ? (
-                                    <div className="absolute inset-0 bg-aura-black flex items-center justify-between px-4 z-10 border border-aura-gold/50">
-                                        <span className="text-sm font-medium text-aura-gold">Confermi la divisione?</span>
-                                        <div className="flex gap-2">
-                                            <button onClick={(e) => { e.stopPropagation(); onSplitTable(table.id); setConfirmSplitTable(false); }} className="px-3 py-1 bg-aura-gold text-black text-xs font-bold rounded cursor-pointer">SI</button>
-                                            <button onClick={(e) => { e.stopPropagation(); setConfirmSplitTable(false); }} className="px-3 py-1 bg-gray-800 text-white text-xs font-bold rounded cursor-pointer">NO</button>
+                            {/* Tasto Rendi Fisso (Solo per tavoli temporanei) */}
+                            {table.isTemporary && onMakePermanent && (
+                                <div className="w-full relative overflow-hidden rounded-xl border border-aura-secondary/30 group hover:border-aura-secondary/50 transition-colors bg-aura-secondary/5 hover:bg-aura-secondary/10">
+                                    <button
+                                        onClick={() => onMakePermanent(table.id)}
+                                        className="w-full flex items-center gap-3 p-4 text-left cursor-pointer"
+                                    >
+                                        <div className="p-2 rounded-lg bg-aura-secondary/10 text-aura-secondary">
+                                            <Anchor size={18} />
                                         </div>
-                                    </div>
-                                ) : null}
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); setConfirmSplitTable(true); }}
-                                    className="w-full flex items-center gap-3 p-4 text-left cursor-pointer"
-                                >
-                                    <div className="p-2 rounded-lg bg-aura-gold/10 text-aura-gold">
-                                        <Divide size={18} />
-                                    </div>
-                                    <div>
-                                        <span className="block text-sm font-medium text-gray-200">Dividi Tavoli</span>
-                                        <span className="block text-[10px] text-gray-500">Ripristina {table.subTables.length} tavoli originali</span>
-                                    </div>
-                                </button>
-                            </div>
-                        )}
+                                        <div>
+                                            <span className="block text-sm font-medium text-aura-secondary">Rendi Fisso</span>
+                                            <span className="block text-[10px] text-aura-secondary/70">Trasforma in tavolo permanente</span>
+                                        </div>
+                                    </button>
+                                </div>
+                            )}
 
-                        {/* Tasto Reset - Fixed UI */}
-                        <div className="w-full relative overflow-hidden rounded-xl border border-aura-border/50 group hover:border-aura-secondary/30 transition-colors bg-aura-black hover:bg-aura-secondary/5">
-                            {confirmResetTable ? (
-                                <div className="absolute inset-0 bg-aura-black flex items-center justify-between px-4 z-10">
-                                    <span className="text-sm font-medium text-white">Confermi reset?</span>
-                                    <div className="flex gap-2">
-                                        <button onClick={(e) => { e.stopPropagation(); onResetTable(table.id); setConfirmResetTable(false); }} className="px-3 py-1 bg-aura-secondary text-black text-xs font-bold rounded cursor-pointer">SI</button>
-                                        <button onClick={(e) => { e.stopPropagation(); setConfirmResetTable(false); }} className="px-3 py-1 bg-gray-800 text-white text-xs font-bold rounded cursor-pointer">NO</button>
-                                    </div>
+                            {/* Tasto Dividi (Visibile solo se il tavolo è unito) */}
+                            {table.subTables.length > 0 && (
+                                <div className="w-full relative overflow-hidden rounded-xl border border-aura-border group hover:border-aura-gold/50 transition-colors bg-aura-card hover:bg-aura-gold/10">
+                                    {confirmSplitTable ? (
+                                        <div className="absolute inset-0 bg-aura-black flex items-center justify-between px-4 z-10 border border-aura-gold/50">
+                                            <span className="text-sm font-medium text-aura-gold">Confermi la divisione?</span>
+                                            <div className="flex gap-2">
+                                                <button onClick={(e) => { e.stopPropagation(); onSplitTable(table.id); setConfirmSplitTable(false); }} className="px-3 py-1 bg-aura-gold text-black text-xs font-bold rounded cursor-pointer">SI</button>
+                                                <button onClick={(e) => { e.stopPropagation(); setConfirmSplitTable(false); }} className="px-3 py-1 bg-gray-800 text-white text-xs font-bold rounded cursor-pointer">NO</button>
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setConfirmSplitTable(true); }}
+                                        className="w-full flex items-center gap-3 p-4 text-left cursor-pointer"
+                                    >
+                                        <div className="p-2 rounded-lg bg-aura-gold/10 text-aura-gold">
+                                            <Divide size={18} />
+                                        </div>
+                                        <div>
+                                            <span className="block text-sm font-medium text-gray-200">Dividi tavoli</span>
+                                            <span className="block text-[10px] text-gray-500">Ripristina {table.subTables.length} tavoli originali</span>
+                                        </div>
+                                    </button>
                                 </div>
-                            ) : null}
-                            <button
-                                onClick={(e) => { e.stopPropagation(); setConfirmResetTable(true); }}
-                                className="w-full flex items-center gap-3 p-4 text-left cursor-pointer"
-                            >
-                                <div className="p-2 rounded-lg bg-gray-800 text-gray-400 group-hover:text-aura-secondary transition-colors">
-                                    <RotateCcw size={18} />
-                                </div>
-                                <div>
-                                    <span className="block text-sm font-medium text-gray-300 group-hover:text-aura-secondary transition-colors">Reset totale</span>
-                                    <span className="block text-[10px] text-gray-600">Torna a {table.originalCapacity} posti e pulisci stato</span>
-                                </div>
-                            </button>
-                        </div>
+                            )}
 
-                        {/* Tasto Elimina - Fixed UI */}
-                        <div className="w-full relative overflow-hidden rounded-xl mt-6 border border-aura-red/30 group hover:border-aura-red/50 transition-colors bg-aura-red/5 hover:bg-aura-red/10">
-                            {confirmDeleteTable ? (
-                                <div className="absolute inset-0 bg-aura-black flex items-center justify-between px-4 z-10">
-                                    <span className="text-sm font-medium text-aura-red">Eliminare davvero?</span>
-                                    <div className="flex gap-2">
-                                        <button onClick={(e) => { e.stopPropagation(); onDeleteTable(table.id); }} className="px-3 py-1 bg-aura-red text-white text-xs font-bold rounded cursor-pointer">SI</button>
-                                        <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteTable(false); }} className="px-3 py-1 bg-gray-800 text-white text-xs font-bold rounded cursor-pointer">NO</button>
-                                    </div>
-                                </div>
-                            ) : null}
-                            <button
-                                onClick={(e) => { e.stopPropagation(); setConfirmDeleteTable(true); }}
-                                className="w-full flex items-center gap-3 p-4 text-left cursor-pointer"
-                            >
-                                <div className="p-2 rounded-lg bg-aura-red/10 text-aura-red">
-                                    <Trash2 size={18} />
-                                </div>
-                                <div>
-                                    <span className="block text-sm font-medium text-aura-red">Elimina tavolo</span>
-                                    <span className="block text-[10px] text-aura-red/70">Rimuovi definitivamente dalla sala</span>
-                                </div>
-                            </button>
+
+
+
                         </div>
                     </div>
-                </div>
+                ) : null}
             </div>
             {/* CAPACITY OVERFLOW CONFIRMATION MODAL */}
             {forceCapacityWarning && (

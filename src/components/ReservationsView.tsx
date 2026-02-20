@@ -18,12 +18,13 @@ interface ReservationsViewProps {
     onDeleteReservation: (tableId: string | null, resId: string) => void;
     onMergeAndReserve?: (tableIds: string[], res: Reservation) => void; // New prop for merging
     preselectNew?: boolean;
+    preselectTableId?: string | null; // Handle context menu reservation creation
     onConsumePreselect?: () => void;
     onEditModeChange?: (isEditing: boolean) => void;
 }
 
 const ReservationsView: React.FC<ReservationsViewProps> = ({
-    tables, unassignedReservations = [], selectedDate, onDateChange, onClose, onAddReservation, onUpdateReservation, onDeleteReservation, onMergeAndReserve, preselectNew, onConsumePreselect, onEditModeChange
+    tables, unassignedReservations = [], selectedDate, onDateChange, onClose, onAddReservation, onUpdateReservation, onDeleteReservation, onMergeAndReserve, preselectNew, preselectTableId, onConsumePreselect, onEditModeChange
 }) => {
     const [viewMode, setViewMode] = useState<'list' | 'new'>('list');
     const [searchTerm, setSearchTerm] = useState('');
@@ -82,7 +83,7 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
                 pax: 2,
                 notes: '',
                 status: 'CONFIRMED',
-                selectedTableId: null
+                selectedTableId: preselectTableId || null
             }));
             setViewMode('new');
             setIsMultiSelectMode(false);
@@ -91,7 +92,7 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
             // Notify parent we handled the request
             if (onConsumePreselect) onConsumePreselect();
         }
-    }, [preselectNew, selectedDate, onConsumePreselect]);
+    }, [preselectNew, preselectTableId, selectedDate, onConsumePreselect]);
 
     // Sync internal form date if global date changes while in form
     useEffect(() => {

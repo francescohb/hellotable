@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Users, Clock, X, ArrowRightLeft, Utensils, Divide, RotateCcw, Minus, Plus, Edit2, Calendar, Trash2, CalendarPlus, Check, AlertTriangle, UserCheck, CheckCircle, Anchor } from 'lucide-react';
 import { TableData, TableStatus, Reservation, ReservationStatus, TurnTimeConfig } from '../lib/types';
 import { STATUS_STYLES, checkOverlap, getTurnTime, DEFAULT_TURN_TIME_CONFIG } from '../lib/constants';
@@ -12,7 +12,6 @@ interface TableDetailsProps {
     selectedDate: string; // From parent
     currentTime?: number; // From parent (for live timer)
     onUpdateStatus: (id: string, status: TableStatus) => void;
-    onModifyCapacity: (id: string, delta: number) => void;
     onRenameTable: (id: string, newName: string) => void;
     onSplitTable: (id: string) => void;
     onResetTable: (id: string) => void;
@@ -22,6 +21,7 @@ interface TableDetailsProps {
     onUpdateReservation: (id: string, reservation: Reservation) => void;
     onClose: () => void;
     onMakePermanent?: (id: string) => void; // New prop
+    onInitiateMerge?: (id: string) => void;
 }
 
 const TableDetails: React.FC<TableDetailsProps> = ({
@@ -30,7 +30,6 @@ const TableDetails: React.FC<TableDetailsProps> = ({
     selectedDate,
     currentTime,
     onUpdateStatus,
-    onModifyCapacity,
     onRenameTable,
     onSplitTable,
     onResetTable,
@@ -39,7 +38,8 @@ const TableDetails: React.FC<TableDetailsProps> = ({
     onRemoveReservation,
     onUpdateReservation,
     onClose,
-    onMakePermanent
+    onMakePermanent,
+    onInitiateMerge
 }) => {
     const [isEditingName, setIsEditingName] = useState(false);
     const [tempName, setTempName] = useState('');
@@ -65,6 +65,9 @@ const TableDetails: React.FC<TableDetailsProps> = ({
     const [confirmSplitTable, setConfirmSplitTable] = useState(false);
     const [confirmDeleteResId, setConfirmDeleteResId] = useState<string | null>(null);
     const [forceConflictWarning, setForceConflictWarning] = useState<boolean>(false);
+    const [forceCapacityWarning, setForceCapacityWarning] = useState<boolean>(false);
+    const [confirmOccupyConflict, setConfirmOccupyConflict] = useState<Reservation | null>(null);
+    const [confirmFinishTable, setConfirmFinishTable] = useState(false);
 
     // Sync temp name when table selection changes
     useEffect(() => {
@@ -81,6 +84,8 @@ const TableDetails: React.FC<TableDetailsProps> = ({
         setConfirmResetTable(false);
         setConfirmSplitTable(false);
         setConfirmDeleteResId(null);
+        setConfirmOccupyConflict(null);
+        setConfirmFinishTable(false);
     }, [table?.id, selectedDate]);
 
     const handleNameSave = () => {
@@ -122,13 +127,8 @@ const TableDetails: React.FC<TableDetailsProps> = ({
         setFormError(null);
     };
 
-    const handleReservationSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
+    const checkConflictsAndSave = () => {
         if (!table) return;
-        if (!resFirstName || !resTime) {
-            setFormError('Nome e Orario sono obbligatori.');
-            return;
-        }
 
         // CONFLICT CHECK
         const existingRes = table.reservations || [];
@@ -136,7 +136,7 @@ const TableDetails: React.FC<TableDetailsProps> = ({
             // Skip the reservation being edited
             if (editResId && r.id === editResId) return false;
             // Check same date and overlap using dynamic turn times based on guests
-            return r.date === resDate && checkOverlap(r.time, r.guests, resTime, resGuests, table?.turnTimeConfig || DEFAULT_TURN_TIME_CONFIG);
+            return r.date === resDate && checkOverlap(r.time, r.guests, resTime, resGuests, table.turnTimeConfig || DEFAULT_TURN_TIME_CONFIG);
         });
 
         if (hasConflict) {
@@ -145,6 +145,24 @@ const TableDetails: React.FC<TableDetailsProps> = ({
         }
 
         proceedWithSave();
+    };
+
+    const handleReservationSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!table) return;
+        if (!resFirstName || !resTime) {
+            setFormError('Nome e Orario sono obbligatori.');
+            return;
+        }
+
+        // CAPACITY CHECK
+        const isOverCapacity = resGuests > table.capacity;
+        if (isOverCapacity && !forceCapacityWarning) {
+            setForceCapacityWarning(true);
+            return;
+        }
+
+        checkConflictsAndSave();
     };
 
     const proceedWithSave = () => {
@@ -209,6 +227,43 @@ const TableDetails: React.FC<TableDetailsProps> = ({
         setFormError(null);
     }
 
+    const getImminentReservation = useCallback(() => {
+        if (!table || !table.reservations || !currentTime) return null;
+        const now = new Date(currentTime);
+        const todayStr = now.toISOString().split('T')[0];
+
+        const activeRes = table.reservations.filter(r => r.date === todayStr && (r.status === 'CONFIRMED' || r.status === 'PENDING'));
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        const turnTimeMinutes = getTurnTime(table.capacity, table.turnTimeConfig || DEFAULT_TURN_TIME_CONFIG);
+
+        for (const res of activeRes) {
+            const [rHour, rMin] = res.time.split(':').map(Number);
+            const resMinutes = rHour * 60 + rMin;
+            const resTurnTime = getTurnTime(res.guests, table.turnTimeConfig || DEFAULT_TURN_TIME_CONFIG);
+
+            // Overlap check (Walk-in interval: [currentMinutes, currentMinutes + turnTimeMinutes])
+            if (currentMinutes < resMinutes + resTurnTime && resMinutes < currentMinutes + turnTimeMinutes) {
+                return res;
+            }
+        }
+        return null;
+    }, [table, currentTime]);
+
+    const handleContextualAction = () => {
+        if (!table) return;
+
+        if (table.status === 'FREE') {
+            const imminent = getImminentReservation();
+            if (imminent) {
+                setConfirmOccupyConflict(imminent);
+            } else {
+                onUpdateStatus(table.id, 'OCCUPIED');
+            }
+        } else if (table.status === 'OCCUPIED') {
+            setConfirmFinishTable(true);
+        }
+    };
+
     if (!table) {
         return (
             <div className="h-full flex flex-col items-center justify-center text-gray-500 bg-aura-bg border-l border-aura-border">
@@ -227,8 +282,8 @@ const TableDetails: React.FC<TableDetailsProps> = ({
     const statusKey = isReserved ? 'RESERVED_VISUAL' : table.status;
     const activeStyle = STATUS_STYLES[statusKey];
 
-    // FILTER ONLY SELECTED DATE RESERVATIONS
-    const uniqueReservations = (table.reservations || []).filter(r => r.date === selectedDate);
+    // FILTER ONLY SELECTED DATE RESERVATIONS (Hide COMPLETED and CANCELLED)
+    const uniqueReservations = (table.reservations || []).filter(r => r.date === selectedDate && r.status !== 'COMPLETED' && r.status !== 'CANCELLED');
     // Sort: First by Date, then by Time
     uniqueReservations.sort((a, b) => a.time.localeCompare(b.time));
 
@@ -301,13 +356,66 @@ const TableDetails: React.FC<TableDetailsProps> = ({
 
             <div className="flex-1 overflow-y-auto custom-scrollbar">
 
-                {/* SECTION 1: STATO DEL TAVOLO (MOVED UP) */}
+                {/* SECTION 1: AZIONE RAPIDA CONTESTUALE */}
                 <div className="p-6 border-b border-aura-border/30">
-                    <h3 className="text-xs font-bold text-gray-500 tracking-widest uppercase mb-4">Stato tavolo</h3>
-                    <div className="flex gap-3">
-                        <StatusBtn status="FREE" label="Libero" activeClass="bg-aura-primary text-black border-aura-primary shadow-[0_0_20px_-5px_rgba(0,227,107,0.5)]" />
-                        <StatusBtn status="OCCUPIED" label="Occupato" activeClass="bg-aura-red text-white border-aura-red shadow-[0_0_20px_-5px_rgba(255,77,77,0.5)]" />
-                    </div>
+                    <h3 className="text-xs font-bold text-gray-500 tracking-widest uppercase mb-4">Azione Rapida</h3>
+
+                    {table.status === 'FREE' && (
+                        <div className="relative">
+                            {confirmOccupyConflict ? (
+                                <div className="border border-aura-primary shadow-[0_0_20px_-5px_rgba(0,227,107,0.5)] bg-aura-black/50 rounded-xl p-3 flex flex-col items-center animate-in fade-in zoom-in duration-200">
+                                    <span className="text-xs font-medium text-white mb-3 text-center leading-tight mt-1">Ci sono prenotazioni imminenti. Chi sta occupando il tavolo?</span>
+                                    <div className="flex gap-2 w-full">
+                                        <button
+                                            onClick={() => { onUpdateStatus(table.id, 'OCCUPIED'); setConfirmOccupyConflict(null); }}
+                                            className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white text-[10px] font-bold rounded-lg cursor-pointer transition-colors uppercase"
+                                        >
+                                            Walk-in
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                onUpdateReservation(table.id, { ...confirmOccupyConflict, status: 'ARRIVED' });
+                                                onUpdateStatus(table.id, 'OCCUPIED');
+                                                setConfirmOccupyConflict(null);
+                                            }}
+                                            className="flex-[2] py-2 bg-aura-primary hover:bg-aura-secondary text-black text-[10px] font-bold rounded-lg cursor-pointer px-2 transition-colors uppercase truncate"
+                                        >
+                                            {confirmOccupyConflict.firstName} {confirmOccupyConflict.lastName}
+                                        </button>
+                                        <button onClick={() => setConfirmOccupyConflict(null)} className="w-[36px] flex items-center justify-center hover:bg-aura-border text-white text-xs rounded-lg cursor-pointer transition-colors border border-transparent hover:border-aura-border"><X size={16} /></button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={handleContextualAction}
+                                    className="w-full py-4 rounded-xl text-sm font-bold uppercase tracking-wider border transition-all shadow-[0_0_20px_-5px_rgba(255,77,77,0.5)] bg-aura-red text-white border-aura-red hover:bg-red-500 cursor-pointer"
+                                >
+                                    <span className="flex items-center justify-center gap-2"><UserCheck size={18} /> Occupa Tavolo</span>
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {table.status === 'OCCUPIED' && (
+                        <div className="relative">
+                            {confirmFinishTable ? (
+                                <div className="border border-aura-primary shadow-[0_0_20px_-5px_rgba(0,227,107,0.5)] bg-aura-black/50 rounded-xl p-3 flex flex-col items-center animate-in fade-in zoom-in duration-200">
+                                    <span className="text-xs font-medium text-white mb-3 mt-1">Liberare il tavolo in anticipo?</span>
+                                    <div className="flex gap-2 w-full">
+                                        <button onClick={() => { onUpdateStatus(table.id, 'FREE'); setConfirmFinishTable(false); }} className="flex-1 py-2 bg-aura-primary hover:bg-aura-secondary text-black text-xs font-bold rounded-lg cursor-pointer transition-colors uppercase">SI, LIBERA</button>
+                                        <button onClick={() => setConfirmFinishTable(false)} className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold rounded-lg cursor-pointer transition-colors uppercase">ANNULLA</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={handleContextualAction}
+                                    className="w-full py-4 rounded-xl text-sm font-bold uppercase tracking-wider border transition-all shadow-[0_0_20px_-5px_rgba(0,227,107,0.5)] bg-aura-primary text-black border-aura-primary hover:bg-aura-secondary cursor-pointer"
+                                >
+                                    <span className="flex items-center justify-center gap-2"><CheckCircle size={18} /> Libera Tavolo</span>
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* SECTION 2: ADD/EDIT RESERVATION FORM */}
@@ -605,36 +713,6 @@ const TableDetails: React.FC<TableDetailsProps> = ({
                     </div>
                 )}
 
-                {/* GESTIONE CAPACITA (PLANCIA) */}
-                <div className="p-6 border-t border-aura-border/30 mt-6">
-                    <div className="flex justify-between items-end mb-4">
-                        <h3 className="text-xs font-bold text-gray-500 tracking-widest uppercase">Gestione Plancia</h3>
-                        <span className="text-[10px] text-gray-600 bg-aura-card border border-aura-border px-2 py-1 rounded">Base: {table.originalCapacity} posti</span>
-                    </div>
-
-                    <div className="flex items-center justify-between bg-aura-card p-2 rounded-xl border border-aura-border">
-                        <button
-                            onClick={() => onModifyCapacity(table.id, -1)}
-                            className="w-12 h-12 flex items-center justify-center bg-aura-grid rounded-lg hover:bg-aura-border text-gray-300 transition-colors cursor-pointer"
-                        >
-                            <Minus size={20} />
-                        </button>
-                        <div className="text-center flex-1">
-                            <span className={`block text-3xl font-bold ${table.capacity > table.originalCapacity ? 'text-aura-primary' : 'text-white'}`}>
-                                {table.capacity > table.originalCapacity ? `+${table.capacity - table.originalCapacity}` : '0'}
-                            </span>
-                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">
-                                {table.capacity > table.originalCapacity ? `Totale: ${table.capacity} coperti` : 'Nessun posto aggiunto'}
-                            </span>
-                        </div>
-                        <button
-                            onClick={() => onModifyCapacity(table.id, 1)}
-                            className="w-12 h-12 flex items-center justify-center bg-aura-primary/10 border border-aura-primary/20 rounded-lg hover:bg-aura-primary/20 text-aura-primary transition-colors cursor-pointer"
-                        >
-                            <Plus size={20} />
-                        </button>
-                    </div>
-                </div>
 
                 {/* STRUMENTI AVANZATI (SPLIT / RESET / PERMANENT) */}
                 <div className="p-6 border-t border-aura-border/30">
@@ -738,7 +816,55 @@ const TableDetails: React.FC<TableDetailsProps> = ({
                     </div>
                 </div>
             </div>
-            {/* FORCE CONFLICT CONFIRMATION MODAL */}
+            {/* CAPACITY OVERFLOW CONFIRMATION MODAL */}
+            {forceCapacityWarning && (
+                <div className="absolute inset-0 z-[60] flex items-center justify-center p-4 bg-aura-black/80 backdrop-blur-sm">
+                    <div className="bg-aura-card border border-aura-border rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <div className="flex flex-col items-center text-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-aura-gold/20 flex items-center justify-center text-aura-gold">
+                                <Users size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-white mb-2">Capacità Superata</h3>
+                                <p className="text-sm text-gray-400">
+                                    Stai inserendo <strong className="text-white">{resGuests} persone</strong> su un tavolo da <strong className="text-white">{table?.capacity}</strong>. Vuoi forzare l'inserimento o preferisci unire il tavolo?
+                                </p>
+                            </div>
+                            <div className="flex flex-col gap-2 w-full mt-2">
+                                <button
+                                    onClick={() => {
+                                        setForceCapacityWarning(false);
+                                        checkConflictsAndSave();
+                                    }}
+                                    className="w-full py-3 rounded-xl font-bold bg-aura-red text-white hover:bg-red-500 transition-colors cursor-pointer text-xs uppercase tracking-wider"
+                                >
+                                    Forza Inserimento
+                                </button>
+                                {onInitiateMerge && (
+                                    <button
+                                        onClick={() => {
+                                            setForceCapacityWarning(false);
+                                            proceedWithSave();
+                                            onInitiateMerge(table!.id);
+                                        }}
+                                        className="w-full py-3 rounded-xl font-bold bg-aura-primary text-black hover:bg-aura-secondary transition-colors cursor-pointer text-xs uppercase tracking-wider shadow-[0_0_15px_-3px_rgba(0,227,107,0.4)]"
+                                    >
+                                        Unisci Tavolo
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => setForceCapacityWarning(false)}
+                                    className="w-full py-2 mt-1 text-gray-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider cursor-pointer"
+                                >
+                                    Annulla
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* TIME CONFLICT CONFIRMATION MODAL */}
             {forceConflictWarning && (
                 <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-aura-black/80 backdrop-blur-sm">
                     <div className="bg-aura-card border border-aura-border rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in duration-200">

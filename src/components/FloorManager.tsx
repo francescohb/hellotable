@@ -9,7 +9,7 @@ import ReservationsView from './ReservationsView';
 import DatePicker from './DatePicker';
 import ContextMenu from './ContextMenu';
 import { TableData, Position, TableStatus, Reservation, TableShape, TurnTimeConfig } from '../lib/types';
-import { DEFAULT_TURN_TIME_CONFIG } from '../lib/constants';
+import { DEFAULT_TURN_TIME_CONFIG, getTurnTime, checkOverlap } from '../lib/constants';
 
 interface FloorManagerProps {
     onLogout: () => void;
@@ -35,8 +35,8 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
     const [isStatsOpen, setIsStatsOpen] = useState(false);
     const [statsTab, setStatsTab] = useState<'floor' | 'all'>('floor');
 
-    // CONTEXT MENU STATE (Table)
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, tableId: string } | null>(null);
+    const [confirmContextOccupy, setConfirmContextOccupy] = useState<{ tableId: string, reservation: Reservation } | null>(null);
 
     // CONTEXT MENU STATE (Floor)
     const [floorMenu, setFloorMenu] = useState<{ x: number, y: number, canvasX: number, canvasY: number } | null>(null);
@@ -59,12 +59,14 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
     // --- MANUAL MERGE STATE ---
     const [isManualMergeMode, setIsManualMergeMode] = useState(false);
     const [manualMergeSelection, setManualMergeSelection] = useState<string[]>([]);
+    const [mergeConflicts, setMergeConflicts] = useState<any[] | null>(null);
 
     const layoutsRef = useRef<Record<string, TableData[]>>({});
     const reservationsRef = useRef<Record<string, Reservation[]>>({});
 
     const [currentView, setCurrentView] = useState<'map' | 'settings' | 'reservations'>('map');
     const [preselectNewReservation, setPreselectNewReservation] = useState<boolean>(false);
+    const [preselectTableId, setPreselectTableId] = useState<string | null>(null);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const [viewPos, setViewPos] = useState({ x: 0, y: 0 });
@@ -304,10 +306,10 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
         setContextMenu(null);
     };
 
-    const handleContextMenuAction = (action: 'toggle_status' | 'split' | 'reset' | 'delete' | 'make_permanent' | 'merge_manual', tableId: string) => {
+    const handleContextMenuAction = (action: 'toggle_status' | 'split' | 'delete' | 'make_permanent' | 'add_reservation', tableId: string) => {
         setContextMenu(null);
         const table = tables.find(t => t.id === tableId);
-        if (!table && action !== 'merge_manual') return; // merge_manual doesn't strictly need the table object immediately
+        if (!table) return;
 
         if (action === 'make_permanent') {
             handleMakePermanent(tableId);
@@ -317,23 +319,37 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                 setNotification('Tavolo Liberato');
             } else {
                 // Smart Occupy logic
-                const todaysRes = table!.reservations.filter(r => r.date === selectedDate && r.status !== 'ARRIVED' && r.status !== 'COMPLETED');
-                const resToCheckIn = todaysRes.sort((a, b) => a.time.localeCompare(b.time))[0];
+                const now = new Date(currentTime);
+                const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                const turnTimeMinutes = getTurnTime(table!.capacity, table!.turnTimeConfig || DEFAULT_TURN_TIME_CONFIG);
 
-                if (resToCheckIn) {
-                    const updatedRes = { ...resToCheckIn, status: 'ARRIVED' as const };
-                    updateReservation(tableId, updatedRes);
-                    updateTableStatus(tableId, 'OCCUPIED');
-                    setNotification(`Check-in effettuato per ${updatedRes.firstName} ${updatedRes.lastName}`);
+                const todaysRes = table!.reservations.filter(r => r.date === selectedDate && r.status !== 'ARRIVED' && r.status !== 'COMPLETED' && r.status !== 'CANCELLED');
+
+                let imminentRes = null;
+                for (const res of todaysRes) {
+                    const [rHour, rMin] = res.time.split(':').map(Number);
+                    const resMinutes = rHour * 60 + rMin;
+                    const resTurnTime = getTurnTime(res.guests, table!.turnTimeConfig || DEFAULT_TURN_TIME_CONFIG);
+
+                    if (currentMinutes < resMinutes + resTurnTime && resMinutes < currentMinutes + turnTimeMinutes) {
+                        imminentRes = res;
+                        break;
+                    }
+                }
+
+                if (imminentRes) {
+                    setConfirmContextOccupy({ tableId, reservation: imminentRes });
                 } else {
                     updateTableStatus(tableId, 'OCCUPIED');
                     setNotification('Tavolo Occupato (Walk-in)');
                 }
             }
+        } else if (action === 'add_reservation') {
+            setPreselectTableId(tableId);
+            setPreselectNewReservation(true);
+            setCurrentView('reservations');
         } else if (action === 'split') {
             splitTable(tableId);
-        } else if (action === 'reset') {
-            resetTable(tableId);
         } else if (action === 'delete') {
             deleteTable(tableId);
         }
@@ -587,12 +603,46 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
         setMergeErrorId(null);
     };
 
-    const handleConfirmManualMerge = (e?: React.MouseEvent) => {
+    const handleConfirmManualMerge = (e?: React.MouseEvent | null, force: boolean = false) => {
         e?.stopPropagation();
         if (manualMergeSelection.length < 2) return;
 
         const targetTables = tables.filter(t => manualMergeSelection.includes(t.id));
         if (targetTables.length < 2) return;
+
+        // --- CONFLICT DETECTION ---
+        if (!force) {
+            const activeRes = targetTables.flatMap(t =>
+                (t.reservations || [])
+                    .filter(r => r.date === selectedDate && (r.status === 'CONFIRMED' || r.status === 'PENDING' || r.status === 'ARRIVED'))
+                    .map(r => ({ ...r, _tableId: t.id, _tableName: t.name, _turnTimeConfig: t.turnTimeConfig || DEFAULT_TURN_TIME_CONFIG }))
+            );
+
+            const conflictingRes: any[] = [];
+            for (let i = 0; i < activeRes.length; i++) {
+                for (let j = i + 1; j < activeRes.length; j++) {
+                    const r1 = activeRes[i];
+                    const r2 = activeRes[j];
+
+                    // Check overlap only between reservations from DIFFERENT tables
+                    if (r1._tableId !== r2._tableId) {
+                        const overlap = checkOverlap(r1.time, r1.guests, r2.time, r2.guests, r1._turnTimeConfig) ||
+                            checkOverlap(r2.time, r2.guests, r1.time, r1.guests, r2._turnTimeConfig);
+
+                        if (overlap) {
+                            if (!conflictingRes.find(c => c.id === r1.id)) conflictingRes.push(r1);
+                            if (!conflictingRes.find(c => c.id === r2.id)) conflictingRes.push(r2);
+                        }
+                    }
+                }
+            }
+
+            if (conflictingRes.length > 0) {
+                setMergeConflicts(conflictingRes);
+                return; // Wait for user to resolve
+            }
+        }
+        // -------------------------
 
         const avgX = targetTables.reduce((sum, t) => sum + t.position.x, 0) / targetTables.length;
         const avgY = targetTables.reduce((sum, t) => sum + t.position.y, 0) / targetTables.length;
@@ -727,8 +777,8 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                     if (!nextRes || (nextRes.tableName && nextRes.tableName !== t.name)) {
                         setNotification("Tavoli separati automaticamente");
 
-                        // Restore sub-tables
-                        const reservationsToDistribute = deduplicateReservations(t.reservations || []);
+                        // Restore sub-tables, using updates.reservations if it was modified (e.g., reservation COMPLETED)
+                        const reservationsToDistribute = deduplicateReservations(updates.reservations || t.reservations || []);
                         const subTableRes: Record<string, Reservation[]> = {};
 
                         t.subTables.forEach(sub => {
@@ -1095,7 +1145,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                         <SettingsView key="settings" onClose={() => setCurrentView('map')} floors={floors} tables={tables} onUpdateFloors={handleUpdateFloors} onDeleteTable={deleteTable} onAddTable={handleAddTable} onUpdateTable={handleUpdateTable} restaurantName={restaurantName} />
                     )}
                     {currentView === 'reservations' && (
-                        <ReservationsView key="reservations" tables={tables} unassignedReservations={unassignedReservations} selectedDate={selectedDate} onDateChange={handleDateSwitch} onClose={() => setCurrentView('map')} onAddReservation={addReservation} onUpdateReservation={updateReservation} onDeleteReservation={removeReservation} onMergeAndReserve={mergeTablesAndAddReservation} preselectNew={preselectNewReservation} onConsumePreselect={() => setPreselectNewReservation(false)} onEditModeChange={setIsEditingReservation} />
+                        <ReservationsView key="reservations" tables={tables} unassignedReservations={unassignedReservations} selectedDate={selectedDate} onDateChange={handleDateSwitch} onClose={() => setCurrentView('map')} onAddReservation={addReservation} onUpdateReservation={updateReservation} onDeleteReservation={removeReservation} onMergeAndReserve={mergeTablesAndAddReservation} preselectNew={preselectNewReservation} preselectTableId={preselectTableId} onConsumePreselect={() => { setPreselectNewReservation(false); setPreselectTableId(null); }} onEditModeChange={setIsEditingReservation} />
                     )}
                     {currentView === 'map' && (
                         <motion.div key="map" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col overflow-hidden relative">
@@ -1296,7 +1346,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                                     onClick={handleQuickAddTable}
                                                     className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-white/10 rounded-lg transition-colors w-full text-left"
                                                 >
-                                                    <MousePointer2 size={16} className="text-aura-primary" /> <span>Aggiungi Tavolo qui</span>
+                                                    <MousePointer2 size={16} className="text-white" /> <span>Aggiungi Tavolo qui</span>
                                                 </button>
                                                 <button
                                                     onClick={(e) => {
@@ -1308,14 +1358,14 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                                     }}
                                                     className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-white/10 rounded-lg transition-colors w-full text-left"
                                                 >
-                                                    <Merge size={16} className="text-aura-primary" /> <span>Unisci Tavoli...</span>
+                                                    <Merge size={16} className="text-white" /> <span>Unisci Tavoli...</span>
                                                 </button>
                                                 <div className="h-px bg-aura-border/50 my-1 mx-1" />
                                                 <button
                                                     onClick={handleResetLayout}
                                                     className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-white/10 rounded-lg transition-colors w-full text-left"
                                                 >
-                                                    <RotateCcw size={16} className="text-aura-gold" /> <span>Ripristina Layout</span>
+                                                    <RotateCcw size={16} className="text-white" /> <span>Ripristina Layout</span>
                                                 </button>
                                             </div>
                                         </motion.div>
@@ -1544,7 +1594,6 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                                 selectedDate={selectedDate}
                                                 currentTime={currentTime}
                                                 onUpdateStatus={updateTableStatus}
-                                                onModifyCapacity={modifyCapacity}
                                                 onRenameTable={renameTable}
                                                 onSplitTable={splitTable}
                                                 onResetTable={resetTable}
@@ -1553,6 +1602,12 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                                 onRemoveReservation={removeReservation}
                                                 onUpdateReservation={updateReservation}
                                                 onClose={() => setSelectedTableId(null)}
+                                                onInitiateMerge={(id) => {
+                                                    setSelectedTableId(null);
+                                                    setIsManualMergeMode(true);
+                                                    setManualMergeSelection([id]);
+                                                    setNotification("Seleziona i tavoli da unire");
+                                                }}
                                                 // Handle making a temporary table permanent
                                                 onMakePermanent={(id) => {
                                                     setTables(prev => prev.map(t => t.id === id ? { ...t, isTemporary: false } : t));
@@ -1563,6 +1618,125 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                     )}
                                 </AnimatePresence>
                             </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* CONTEXT MENU CONFLICT MODAL */}
+                <AnimatePresence>
+                    {confirmContextOccupy && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[200] bg-aura-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+                        >
+                            <motion.div
+                                initial={{ scale: 0.95, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.95, opacity: 0 }}
+                                className="bg-aura-card border border-aura-primary shadow-[0_0_30px_-5px_rgba(0,227,107,0.5)] rounded-2xl p-6 w-full max-w-sm"
+                            >
+                                <div className="flex flex-col items-center text-center gap-4">
+                                    <div className="w-12 h-12 rounded-full bg-aura-primary/20 flex items-center justify-center text-aura-primary shadow-inner">
+                                        <UserCheck size={24} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-white mb-2">Prenotazione Imminente</h3>
+                                        <p className="text-sm text-gray-400">
+                                            Ci sono prenotazioni imminenti per questo tavolo. Chi lo sta occupando?
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-col gap-3 w-full mt-2">
+                                        <button
+                                            onClick={() => {
+                                                const res = confirmContextOccupy.reservation;
+                                                updateReservation(confirmContextOccupy.tableId, { ...res, status: 'ARRIVED' });
+                                                updateTableStatus(confirmContextOccupy.tableId, 'OCCUPIED');
+                                                setNotification(`Check-in effettuato per ${res.firstName} ${res.lastName}`);
+                                                setConfirmContextOccupy(null);
+                                            }}
+                                            className="w-full py-3 rounded-xl font-bold bg-aura-primary text-black hover:bg-aura-secondary transition-colors uppercase cursor-pointer truncate px-4 text-sm"
+                                        >
+                                            {confirmContextOccupy.reservation.firstName} {confirmContextOccupy.reservation.lastName} (Prenotato)
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                updateTableStatus(confirmContextOccupy.tableId, 'OCCUPIED');
+                                                setNotification('Tavolo Occupato (Walk-in)');
+                                                setConfirmContextOccupy(null);
+                                            }}
+                                            className="w-full py-3 rounded-xl font-bold bg-gray-700 text-white hover:bg-gray-600 transition-colors uppercase cursor-pointer text-sm"
+                                        >
+                                            Walk-in
+                                        </button>
+                                        <button
+                                            onClick={() => setConfirmContextOccupy(null)}
+                                            className="w-full py-2 mt-1 text-gray-500 hover:text-white transition-colors text-sm font-medium uppercase cursor-pointer"
+                                        >
+                                            Annulla
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* MERGE CONFLICT MODAL */}
+                <AnimatePresence>
+                    {mergeConflicts && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[200] bg-aura-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+                        >
+                            <motion.div
+                                initial={{ scale: 0.95, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.95, opacity: 0 }}
+                                className="bg-aura-card border border-aura-border shadow-2xl rounded-2xl p-6 w-full max-w-md"
+                            >
+                                <div className="flex flex-col items-center text-center gap-4">
+                                    <div className="w-12 h-12 rounded-full bg-aura-red/20 flex items-center justify-center text-aura-red">
+                                        <Merge size={24} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-white mb-2">Conflitto di Unione</h3>
+                                        <p className="text-sm text-gray-400">
+                                            I tavoli selezionati hanno prenotazioni che si sovrappongono. Vuoi forzare l'unione ugualmente? (Le prenotazioni verranno mantenute e accorpate).
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-col gap-2 w-full mt-4">
+                                        {mergeConflicts.map(res => (
+                                            <div key={res.id} className="flex justify-between items-center bg-aura-black/50 border border-aura-border rounded-xl p-3">
+                                                <div className="text-left w-full">
+                                                    <span className="block text-sm font-bold text-white">{res.firstName} {res.lastName}</span>
+                                                    <span className="block text-xs text-gray-400">Tavolo {res._tableName} • {res.time} ({res.guests} pax)</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex flex-col gap-2 w-full mt-2">
+                                        <button
+                                            onClick={() => {
+                                                setMergeConflicts(null);
+                                                handleConfirmManualMerge(null, true);
+                                            }}
+                                            className="w-full py-3 rounded-xl font-bold bg-aura-red text-white hover:bg-red-500 transition-colors uppercase tracking-wider text-sm"
+                                        >
+                                            Forza Unione
+                                        </button>
+                                        <button
+                                            onClick={() => setMergeConflicts(null)}
+                                            className="w-full py-3 font-bold bg-aura-card border border-aura-border text-gray-400 hover:text-white rounded-xl transition-colors cursor-pointer text-sm uppercase tracking-wider"
+                                        >
+                                            Annulla
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
                         </motion.div>
                     )}
                 </AnimatePresence>

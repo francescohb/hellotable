@@ -40,16 +40,23 @@ const TableNode: React.FC<TableNodeProps> = ({
   const isReserved = data.status === 'FREE' && todaysReservations.length > 0;
 
   // Get the most relevant reservation
-  const nextReservation = useMemo(() => {
-    if (!todaysReservations.length) return null;
-    return [...todaysReservations].sort((a, b) => a.time.localeCompare(b.time))[0];
+  const upcomingReservations = useMemo(() => {
+    if (!todaysReservations.length) return [];
+    return [...todaysReservations]
+      .sort((a, b) => a.time.localeCompare(b.time))
+      .slice(0, 2);
   }, [todaysReservations]);
+
+  const isPending = upcomingReservations.some(r => r.status === 'PENDING');
+
+  const seatedReservation = data.status === 'OCCUPIED' ? data.reservations?.find(r => r.status === 'ARRIVED') : null;
+  const displayGuests = seatedReservation ? `${seatedReservation.guests} / ${data.capacity}` : data.capacity;
 
   const visualStyle = isReserved
     ? STATUS_STYLES.RESERVED_VISUAL
     : STATUS_STYLES[data.status];
 
-  // 10-minute warning logic
+  // 10-minute warning logic (For OCCUPIED tables)
   const isUpcomingWarning = useMemo(() => {
     if (data.status !== 'OCCUPIED') return false;
 
@@ -65,10 +72,25 @@ const TableNode: React.FC<TableNodeProps> = ({
       const [rHour, rMin] = r.time.split(':').map(Number);
       const rMinutes = rHour * 60 + rMin;
       const diff = rMinutes - nowMinutes;
-      // If the reservation is within the next 10 minutes (inclusive)
-      return diff > 0 && diff <= 10;
+      // If the reservation is within the next 10 minutes (inclusive) or already passed
+      return diff <= 10;
     });
   }, [data.status, data.reservations, selectedDate, currentTime]);
+
+  // Late reservation warning (For FREE Tables)
+  const isLateReservationWarning = useMemo(() => {
+    if (data.status !== 'FREE' || !upcomingReservations.length) return false;
+
+    const now = new Date(currentTime);
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+    return upcomingReservations.some(r => {
+      const [rHour, rMin] = r.time.split(':').map(Number);
+      const rMinutes = rHour * 60 + rMin;
+      // True if current time is past the reservation time
+      return nowMinutes >= rMinutes;
+    });
+  }, [data.status, upcomingReservations, currentTime]);
 
   // Determine shape dimensions & roundedness
   // GRID SIZE is 60px.
@@ -143,7 +165,6 @@ const TableNode: React.FC<TableNodeProps> = ({
     onContextMenu(e, data.id);
   };
 
-  const isPending = nextReservation?.status === 'PENDING';
   const resColorClass = isPending ? 'text-orange-400' : 'text-aura-gold';
   const shapeClass = getShapeStyle(data.shape, data.isExtended);
   const svgRadius = getSvgRadius(data.shape, data.isExtended);
@@ -157,7 +178,9 @@ const TableNode: React.FC<TableNodeProps> = ({
   } else if (isManualSelected) {
     containerClasses = "border-aura-primary bg-aura-primary/20 z-50 shadow-[0_0_20px_-5px_rgba(0,227,107,0.5)]";
   } else if (isUpcomingWarning) {
-    containerClasses = "border-aura-red bg-aura-red/10 animate-pulse z-50 shadow-[0_0_15px_rgba(255,77,77,0.5)]";
+    containerClasses = "border-transparent bg-aura-red/10 z-50 shadow-[0_0_15px_rgba(255,77,77,0.5)]";
+  } else if (isLateReservationWarning) {
+    containerClasses = "border-transparent bg-aura-gold/10 z-50 shadow-[0_0_15px_rgba(250,204,21,0.5)]";
   } else if (isPending) {
     containerClasses = "border-orange-500/50 bg-orange-500/5 z-10";
   } else {
@@ -197,9 +220,9 @@ const TableNode: React.FC<TableNodeProps> = ({
         ${containerClasses}
       `}
     >
-      {/* MARCHING ANTS DASHED BORDER (SVG) - Green for Success, Red for Error */}
-      {(isMergeCandidate || isMergeError) && (
-        <div className="absolute inset-[-12px] pointer-events-none z-0">
+      {/* MARCHING ANTS DASHED BORDER (SVG) - Green for Success, Red for Error/Warning, Yellow for Late */}
+      {(isMergeCandidate || isMergeError || isUpcomingWarning || isLateReservationWarning) && (
+        <div className="absolute inset-[-1px] pointer-events-none z-0">
           <svg width="100%" height="100%">
             <motion.rect
               width="100%"
@@ -207,8 +230,8 @@ const TableNode: React.FC<TableNodeProps> = ({
               rx={svgRadius}
               ry={svgRadius}
               fill="none"
-              stroke={isMergeError ? "#ff4d4d" : "#00e36b"}
-              strokeWidth="2"
+              stroke={isMergeCandidate ? "#00e36b" : isLateReservationWarning ? "#facc15" : "#ff4d4d"}
+              strokeWidth="3"
               strokeDasharray="8 8"
               initial={{ strokeDashoffset: 0 }}
               animate={{ strokeDashoffset: -16 }}
@@ -224,47 +247,44 @@ const TableNode: React.FC<TableNodeProps> = ({
           <Ban size={20} />
         </div>
       )}
-
-      {/* Top Right Status Dot */}
-      {data.status === 'OCCUPIED' && !isMergeError && (
-        <div className="absolute top-3 right-3 w-3 h-3 rounded-full bg-aura-red shadow-[0_0_8px_rgba(255,77,77,0.6)]" />
-      )}
-
-      {/* Reserved Icon */}
-      {isReserved && !isMergeError && (
-        <div className={`absolute top-3 right-3 animate-pulse ${resColorClass} ${data.shape === 'circle' ? 'bg-black/60 rounded-full p-1 -m-1' : ''}`}>
-          <CalendarCheck size={16} />
-        </div>
-      )}
-
       <div className="flex flex-col items-center gap-1.5">
-        <div className={`flex items-center gap-1 text-xs font-medium ${data.status === 'FREE' && !isReserved && !isMergeError ? 'text-gray-500' : 'text-gray-300'}`}>
+        <div className={`flex items-center gap-1 text-xs font-medium ${data.status === 'FREE' && !isReserved && !isMergeError ? 'text-white' : 'text-gray-300'}`}>
           <Users size={14} />
-          <span>{data.capacity}</span>
+          <span>{displayGuests}</span>
         </div>
         <span className={`text-3xl font-bold tracking-tight text-white leading-none`}>
           {data.name}
         </span>
       </div>
 
-      <div className="mt-2">
+      <div className="mt-2 flex flex-col items-center">
         {data.status === 'FREE' && !isReserved && !isMergeError && (
           <span className="text-xs font-bold tracking-widest uppercase text-aura-primary">LIBERO</span>
         )}
-        {isReserved && nextReservation && !isMergeError && (
-          <div className="flex flex-col items-center gap-0.5">
-            <span className={`text-[10px] font-bold tracking-widest uppercase ${resColorClass}`}>
-              {isPending ? 'DA CONFERMARE' : 'PRENOTATO'}
-            </span>
-            <span className={`text-xs font-medium ${isPending ? 'text-orange-400/80' : 'text-aura-gold/80'}`}>
-              {nextReservation.time}
-            </span>
-          </div>
-        )}
         {data.status === 'OCCUPIED' && !isMergeError && (
-          <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-aura-red/10 border border-aura-red/20">
+          <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-aura-red/10 border border-aura-red/20 mb-1">
             <Clock size={12} className="text-aura-red" />
             <span className="text-xs font-bold text-aura-red tabular-nums">{duration}</span>
+          </div>
+        )}
+        {(isReserved || isUpcomingWarning) && upcomingReservations.length > 0 && !isMergeError && (
+          <div className="flex flex-col items-center gap-1 mt-0.5">
+            {data.status === 'FREE' && (
+              <span className={`text-[10px] font-bold tracking-widest uppercase ${resColorClass}`}>
+                {isPending ? 'DA CONFERMARE' : 'PRENOTATO'}
+              </span>
+            )}
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border z-20 ${isPending ? 'bg-[#3a2010] border-orange-500/30' : 'bg-[#2a2415] border-aura-gold/30'}`}>
+              <Clock size={10} className={isPending ? 'text-orange-400' : 'text-aura-gold shrink-0'} />
+              <div className={`text-[10px] font-bold leading-none tracking-wide flex items-center gap-1.5 whitespace-nowrap ${isPending ? 'text-orange-400' : 'text-aura-gold'}`}>
+                {upcomingReservations.map((r, idx) => (
+                  <React.Fragment key={r.id}>
+                    <span className="whitespace-nowrap">{r.time} <span className="text-[9px] opacity-75 font-medium ml-px">({r.guests})</span></span>
+                    {idx < upcomingReservations.length - 1 && <span className="text-white/20">|</span>}
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
           </div>
         )}
         {isMergeError && (
@@ -274,7 +294,7 @@ const TableNode: React.FC<TableNodeProps> = ({
 
       {data.subTables.length > 0 && (
         <div className="absolute -bottom-3 bg-aura-card border border-aura-border text-gray-400 text-[10px] px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-md">
-          <span>+ {data.subTables.length} Uniti</span>
+          <span>+ {data.subTables.length} tavoli uniti</span>
         </div>
       )}
     </motion.div>

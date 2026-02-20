@@ -9,7 +9,9 @@ import {
     Trash2,
     Utensils,
     Anchor,
-    Merge
+    Merge,
+    CheckCircle,
+    CalendarPlus
 } from 'lucide-react';
 import { TableData } from '../lib/types';
 
@@ -18,7 +20,7 @@ interface ContextMenuProps {
     y: number;
     table: TableData;
     onClose: () => void;
-    onAction: (action: 'toggle_status' | 'split' | 'reset' | 'delete' | 'make_permanent' | 'merge_manual', tableId: string) => void;
+    onAction: (action: 'toggle_status' | 'split' | 'delete' | 'make_permanent' | 'add_reservation', tableId: string) => void;
     hasPendingRes: boolean;
 }
 
@@ -64,17 +66,17 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, table, onClose, onActio
                     className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors w-full text-left
                         ${isOccupied
                             ? 'text-aura-primary hover:bg-aura-primary/10'
-                            : (hasPendingRes ? 'text-aura-gold hover:bg-aura-gold/10' : 'text-gray-300 hover:bg-white/10')
+                            : 'text-aura-red hover:bg-aura-red/10'
                         }`}
                 >
                     {isOccupied ? (
                         <>
-                            <LogOut size={16} /> <span>Libera Tavolo</span>
+                            <CheckCircle size={16} /> <span>Libera Tavolo</span>
                         </>
                     ) : (
                         <>
-                            {hasPendingRes ? <UserCheck size={16} /> : <Utensils size={16} />}
-                            <span>{hasPendingRes ? 'Check-in Prenotazione' : 'Occupa Tavolo'}</span>
+                            <UserCheck size={16} />
+                            <span>Occupa Tavolo</span>
                         </>
                     )}
                 </button>
@@ -99,30 +101,18 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, table, onClose, onActio
                     </button>
                 )}
 
-                {/* MANUAL MERGE */}
-                {table.status === 'FREE' && (
-                    <button
-                        onClick={() => onAction('merge_manual', table.id)}
-                        className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors w-full text-left"
-                    >
-                        <Merge size={16} /> <span>Unisci Tavoli...</span>
-                    </button>
-                )}
-
-                <div className="h-px bg-aura-border/50 my-1 mx-1" />
-
-                {/* RESET */}
+                {/* AGGIUNGI PRENOTAZIONE */}
                 <button
-                    onClick={() => onAction('reset', table.id)}
+                    onClick={() => onAction('add_reservation', table.id)}
                     className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors w-full text-left"
                 >
-                    <RotateCcw size={16} /> <span>Reset Totale</span>
+                    <CalendarPlus size={16} /> <span>Aggiungi Prenotazione</span>
                 </button>
 
                 {/* DELETE */}
                 <button
                     onClick={() => onAction('delete', table.id)}
-                    className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-aura-red hover:bg-aura-red/10 rounded-lg transition-colors w-full text-left"
+                    className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors w-full text-left"
                 >
                     <Trash2 size={16} /> <span>Elimina</span>
                 </button>

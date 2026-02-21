@@ -770,7 +770,7 @@ const ReservationsView: React.FC<ReservationsViewProps> = ({
                                             <button
                                                 type="button"
                                                 onClick={() => setFormData({ ...formData, status: 'PENDING' })}
-                                                className={`flex-1 py-2 text-xs font-bold rounded-lg uppercase transition-all cursor-pointer ${formData.status === 'PENDING' ? 'bg-orange-500 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
+                                                className={`flex-1 py-2 text-xs font-bold rounded-lg uppercase transition-all cursor-pointer ${formData.status === 'PENDING' ? 'bg-orange-400 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
                                             >
                                                 Da Confermare
                                             </button>

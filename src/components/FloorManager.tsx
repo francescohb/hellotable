@@ -36,7 +36,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
     const [statsTab, setStatsTab] = useState<'floor' | 'all'>('floor');
 
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, tableId: string } | null>(null);
-    const [confirmContextOccupy, setConfirmContextOccupy] = useState<{ tableId: string, reservation: Reservation } | null>(null);
+    const [confirmContextOccupy, setConfirmContextOccupy] = useState<{ tableId: string, reservations: Reservation[] } | null>(null);
 
     // CONTEXT MENU STATE (Floor)
     const [floorMenu, setFloorMenu] = useState<{ x: number, y: number, canvasX: number, canvasY: number } | null>(null);
@@ -325,21 +325,28 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
 
                 const todaysRes = table!.reservations.filter(r => r.date === selectedDate && r.status !== 'ARRIVED' && r.status !== 'COMPLETED' && r.status !== 'CANCELLED');
 
-                let imminentRes = null;
-                for (const res of todaysRes) {
+                const overlappingRes = todaysRes.filter(res => {
                     const [rHour, rMin] = res.time.split(':').map(Number);
                     const resMinutes = rHour * 60 + rMin;
                     const resTurnTime = getTurnTime(res.guests, table!.turnTimeConfig || DEFAULT_TURN_TIME_CONFIG);
 
-                    if (currentMinutes < resMinutes + resTurnTime && resMinutes < currentMinutes + turnTimeMinutes) {
-                        imminentRes = res;
-                        break;
-                    }
-                }
+                    return (currentMinutes < resMinutes + resTurnTime && resMinutes <= currentMinutes + turnTimeMinutes + 15);
+                });
 
-                if (imminentRes) {
-                    setConfirmContextOccupy({ tableId, reservation: imminentRes });
+                if (overlappingRes.length > 0) {
+                    setConfirmContextOccupy({ tableId, reservations: overlappingRes });
                 } else {
+                    const now = new Date(currentTime);
+                    const newReservation: Reservation = {
+                        id: `walkin-${Date.now()}`,
+                        firstName: 'Walk-in',
+                        lastName: '',
+                        date: selectedDate,
+                        time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        guests: table!.capacity,
+                        status: 'ARRIVED'
+                    };
+                    updateReservation(tableId, newReservation);
                     updateTableStatus(tableId, 'OCCUPIED');
                     setNotification('Tavolo Occupato (Walk-in)');
                 }
@@ -1532,9 +1539,9 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                                         <div className="flex flex-col justify-between h-full">
                                                             <div>
                                                                 <div className="flex items-center gap-2 mb-2 text-gray-400 text-xs font-bold uppercase">
-                                                                    <Clock size={14} className="text-orange-500" /> In Arrivo
+                                                                    <Clock size={14} className="text-orange-400" /> In Arrivo
                                                                 </div>
-                                                                <span className="text-4xl font-bold text-orange-500 block leading-none">
+                                                                <span className="text-4xl font-bold text-orange-400 block leading-none">
                                                                     {stats.pendingList.length}
                                                                 </span>
                                                             </div>
@@ -1550,7 +1557,7 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                                                     {stats.pendingList.map((res, i) => (
                                                                         <div key={i} className="flex justify-between items-center text-xs">
                                                                             <span className="font-bold text-white">{res.tableName}</span>
-                                                                            <span className="font-mono text-orange-400 bg-orange-500/10 px-1.5 rounded">{res.time}</span>
+                                                                            <span className="font-mono text-orange-400 bg-orange-400/10 px-1.5 rounded">{res.time}</span>
                                                                         </div>
                                                                     ))}
                                                                 </div>
@@ -1646,20 +1653,36 @@ const FloorManager: React.FC<FloorManagerProps> = ({ onLogout, restaurantName, i
                                         </p>
                                     </div>
                                     <div className="flex flex-col gap-3 w-full mt-2">
+                                        {confirmContextOccupy.reservations.map(res => (
+                                            <button
+                                                key={res.id}
+                                                onClick={() => {
+                                                    updateReservation(confirmContextOccupy.tableId, { ...res, status: 'ARRIVED' });
+                                                    updateTableStatus(confirmContextOccupy.tableId, 'OCCUPIED');
+                                                    setNotification(`Check-in effettuato per ${res.firstName} ${res.lastName}`);
+                                                    setConfirmContextOccupy(null);
+                                                }}
+                                                className={`w-full py-3 rounded-xl font-bold transition-colors uppercase cursor-pointer truncate px-4 text-sm ${res.status === 'PENDING'
+                                                    ? 'bg-orange-400 text-white hover:bg-orange-500'
+                                                    : 'bg-aura-primary text-black hover:bg-aura-secondary'
+                                                    }`}
+                                            >
+                                                {res.status === 'PENDING' ? <span className="mr-1 inline-block">Da Conf:</span> : ''} {res.firstName} {res.lastName}
+                                            </button>
+                                        ))}
                                         <button
                                             onClick={() => {
-                                                const res = confirmContextOccupy.reservation;
-                                                updateReservation(confirmContextOccupy.tableId, { ...res, status: 'ARRIVED' });
-                                                updateTableStatus(confirmContextOccupy.tableId, 'OCCUPIED');
-                                                setNotification(`Check-in effettuato per ${res.firstName} ${res.lastName}`);
-                                                setConfirmContextOccupy(null);
-                                            }}
-                                            className="w-full py-3 rounded-xl font-bold bg-aura-primary text-black hover:bg-aura-secondary transition-colors uppercase cursor-pointer truncate px-4 text-sm"
-                                        >
-                                            {confirmContextOccupy.reservation.firstName} {confirmContextOccupy.reservation.lastName} (Prenotato)
-                                        </button>
-                                        <button
-                                            onClick={() => {
+                                                const now = new Date(currentTime);
+                                                const newReservation: Reservation = {
+                                                    id: `walkin-${Date.now()}`,
+                                                    firstName: 'Walk-in',
+                                                    lastName: '',
+                                                    date: selectedDate,
+                                                    time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                                                    guests: tables.find(t => t.id === confirmContextOccupy.tableId)?.capacity || 2,
+                                                    status: 'ARRIVED'
+                                                };
+                                                updateReservation(confirmContextOccupy.tableId, newReservation);
                                                 updateTableStatus(confirmContextOccupy.tableId, 'OCCUPIED');
                                                 setNotification('Tavolo Occupato (Walk-in)');
                                                 setConfirmContextOccupy(null);

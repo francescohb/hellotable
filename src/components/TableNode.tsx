@@ -61,8 +61,8 @@ const TableNode: React.FC<TableNodeProps> = ({
     if (data.status !== 'OCCUPIED') return false;
 
     // We need to look at ALL reservations for today, not just active ones, 
-    // because an OCCUPIED table might have a CONFIRMED reservation coming up
-    const todayRes = data.reservations?.filter(r => r.date === selectedDate && r.status === 'CONFIRMED') || [];
+    // because an OCCUPIED table might have a CONFIRMED or PENDING reservation coming up
+    const todayRes = data.reservations?.filter(r => r.date === selectedDate && (r.status === 'CONFIRMED' || r.status === 'PENDING')) || [];
     if (!todayRes.length) return false;
 
     const now = new Date(currentTime);
@@ -166,7 +166,6 @@ const TableNode: React.FC<TableNodeProps> = ({
     onContextMenu(e, data.id);
   };
 
-  const resColorClass = isPending ? 'text-orange-400' : 'text-aura-gold';
   const shapeClass = getShapeStyle(data.shape, data.isExtended);
   const svgRadius = getSvgRadius(data.shape, data.isExtended);
 
@@ -183,7 +182,7 @@ const TableNode: React.FC<TableNodeProps> = ({
   } else if (isLateReservationWarning) {
     containerClasses = "border-transparent bg-aura-gold/10 z-50 shadow-[0_0_15px_rgba(250,204,21,0.5)]";
   } else if (isPending) {
-    containerClasses = "border-orange-500/50 bg-orange-500/5 z-10";
+    containerClasses = "border-orange-400/50 bg-orange-400/5 z-10";
   } else {
     containerClasses = `${visualStyle.border} ${visualStyle.bg} ${data.status === 'FREE' && !isReserved ? 'bg-opacity-5' : 'bg-opacity-10'} ${isSelected ? 'z-50' : 'z-10'}`;
   }
@@ -270,26 +269,56 @@ const TableNode: React.FC<TableNodeProps> = ({
             <span className="text-xs font-bold text-aura-red tabular-nums">{duration}</span>
           </div>
         )}
-        {(isReserved || isUpcomingWarning) && upcomingReservations.length > 0 && !isMergeError && (
-          <div className="flex flex-col items-center gap-1 mt-0.5">
-            {data.status === 'FREE' && (
-              <span className={`text-[10px] font-bold tracking-widest uppercase ${resColorClass}`}>
-                {isPending ? 'DA CONFERMARE' : 'PRENOTATO'}
-              </span>
-            )}
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border z-20 ${isPending ? 'bg-[#3a2010] border-orange-500/30' : 'bg-[#2a2415] border-aura-gold/30'}`}>
-              <Clock size={10} className={isPending ? 'text-orange-400' : 'text-aura-gold shrink-0'} />
-              <div className={`text-[10px] font-bold leading-none tracking-wide flex items-center gap-1.5 whitespace-nowrap ${isPending ? 'text-orange-400' : 'text-aura-gold'}`}>
-                {upcomingReservations.map((r, idx) => (
-                  <React.Fragment key={r.id}>
-                    <span className="whitespace-nowrap">{r.time} <span className="text-[9px] opacity-75 font-medium ml-px">({r.guests})</span></span>
-                    {idx < upcomingReservations.length - 1 && <span className="text-white/20">|</span>}
-                  </React.Fragment>
-                ))}
-              </div>
+        {(isReserved || isUpcomingWarning) && upcomingReservations.length > 0 && !isMergeError && (() => {
+          const pendingRes = upcomingReservations.filter(r => r.status === 'PENDING');
+          const confirmedRes = upcomingReservations.filter(r => r.status !== 'PENDING');
+
+          return (
+            <div className="flex justify-center gap-2 mt-0.5 w-[95%]">
+              {pendingRes.length > 0 && (
+                <div className="flex flex-col items-center gap-0.5 min-w-0">
+                  {data.status === 'FREE' && (
+                    <span className="text-[8px] font-bold tracking-widest uppercase text-orange-400">
+                      DA CONF.
+                    </span>
+                  )}
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg border z-20 bg-[#3a2010] border-orange-400/30 overflow-hidden text-ellipsis">
+                    <Clock size={10} className="text-orange-400 shrink-0" />
+                    <div className="text-[10px] font-bold leading-none tracking-wide flex items-center gap-1 whitespace-nowrap text-orange-400">
+                      {pendingRes.map((r, idx) => (
+                        <React.Fragment key={r.id}>
+                          <span className="whitespace-nowrap truncate">{r.time} <span className="text-[9px] opacity-75 font-medium">({r.guests})</span></span>
+                          {idx < pendingRes.length - 1 && <span className="text-orange-400/50">|</span>}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {confirmedRes.length > 0 && (
+                <div className="flex flex-col items-center gap-0.5 min-w-0">
+                  {data.status === 'FREE' && (
+                    <span className="text-[8px] font-bold tracking-widest uppercase text-aura-gold">
+                      PRENOTATO
+                    </span>
+                  )}
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg border z-20 bg-[#2a2415] border-aura-gold/30 overflow-hidden text-ellipsis">
+                    <Clock size={10} className="text-aura-gold shrink-0" />
+                    <div className="text-[10px] font-bold leading-none tracking-wide flex items-center gap-1 whitespace-nowrap text-aura-gold">
+                      {confirmedRes.map((r, idx) => (
+                        <React.Fragment key={r.id}>
+                          <span className="whitespace-nowrap truncate">{r.time} <span className="text-[9px] opacity-75 font-medium">({r.guests})</span></span>
+                          {idx < confirmedRes.length - 1 && <span className="text-white/20">|</span>}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
         {isMergeError && (
           <span className="text-[10px] font-bold tracking-widest uppercase text-aura-red bg-aura-black/50 px-2 py-0.5 rounded">OCCUPATO</span>
         )}
